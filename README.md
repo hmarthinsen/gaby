@@ -1,4 +1,4 @@
-# gaby
+# Gaby
 A simple Game Boy emulator written in Rust.
 
 ## Some notes
