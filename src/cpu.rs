@@ -216,6 +216,29 @@ enum Condition {
     Carry(bool),
 }
 
+impl Condition {
+    fn print(&self) -> String {
+        match self {
+            Condition::Unconditional => "",
+            Condition::Zero(flag) => {
+                if *flag {
+                    "Z"
+                } else {
+                    "NZ"
+                }
+            }
+            Condition::Carry(flag) => {
+                if *flag {
+                    "C"
+                } else {
+                    "NC"
+                }
+            }
+        }
+        .into()
+    }
+}
+
 struct Registers {
     a: u8,
     f: u8,
@@ -363,33 +386,32 @@ impl CPU {
     }
 
     /// JP
-    fn jump(&mut self, word: impl Read<u16>) {
-        self.curr_instr = "JP ".to_string() + &word.print(self);
-        self.cycle += 1;
-        self.reg.pc = word.read(self);
+    fn jump(&mut self, word: impl Read<u16>, cond: Condition) {
+        self.curr_instr = "JP".to_string() + &cond.print() + " " + &word.print(self);
+
+        let shall_jump = match cond {
+            Condition::Unconditional => true,
+            Condition::Zero(flag) => self.reg.z_flag() == flag,
+            Condition::Carry(flag) => self.reg.c_flag() == flag,
+        };
+
+        let address = word.read(self);
+
+        if shall_jump {
+            self.cycle += 1;
+            self.reg.pc = address;
+        }
     }
 
     /// JR
+    // TODO: Finish implementation.
     fn jump_relative(&mut self, cond: Condition) {
-        self.curr_instr = "JR".to_string();
+        self.curr_instr = "JR".to_string() + &cond.print() + " ";
+
         let shall_jump = match cond {
             Condition::Unconditional => true,
-            Condition::Zero(flag) => {
-                if flag {
-                    self.curr_instr.push_str("Z");
-                } else {
-                    self.curr_instr.push_str("NZ");
-                }
-                self.reg.z_flag() == flag
-                }
-            Condition::Carry(flag) => {
-                if flag {
-                    self.curr_instr.push_str("C");
-                } else {
-                    self.curr_instr.push_str("NC");
-                }
-                self.reg.c_flag() == flag
-                }
+            Condition::Zero(flag) => self.reg.z_flag() == flag,
+            Condition::Carry(flag) => self.reg.c_flag() == flag,
         };
 
         let offset = self.read_immediate_byte() as i8;
@@ -398,10 +420,11 @@ impl CPU {
             self.reg.pc = (self.reg.pc as i32 + offset as i32) as u16;
         }
 
-        self.curr_instr += &format!(" {}", offset);
+        self.curr_instr += &format!("{}", offset);
     }
 
     /// XOR
+    // TODO: Finish implementation.
     fn xor(&mut self, byte: impl Read<u8>) {
         self.curr_instr = "XOR ".to_string() + &byte.print(self);
 
@@ -415,6 +438,7 @@ impl CPU {
     }
 
     /// LD
+    // TODO: Finish implementation.
     fn load<T>(&mut self, target: impl Write<T>, source: impl Read<T>) {
         self.curr_instr = "LD ".to_string() + &target.print(self) + ", " + &source.print(self);
 
@@ -423,6 +447,7 @@ impl CPU {
     }
 
     /// DEC
+    // TODO: Finish implementation.
     fn decrement<T: Decrement<T>>(&mut self, data: impl Read<T> + Write<T>) {
         self.curr_instr = "DEC ".to_string() + &self::Write::print(&data, self);
 
@@ -431,6 +456,7 @@ impl CPU {
     }
 
     /// LDD
+    // TODO: Finish implementation.
     fn load_and_decrement_hl<T: Decrement<T>>(
         &mut self,
         target: impl Write<T>,
@@ -443,6 +469,8 @@ impl CPU {
         self.curr_instr = instr;
     }
 
+    /// INC
+    // TODO: Finish implementation.
     fn increment<T: Increment<T>>(&mut self, data: impl Read<T> + Write<T>) {
         self.curr_instr = "INC ".to_string() + &self::Write::print(&data, self);
 
@@ -479,8 +507,8 @@ impl CPU {
     /// Fetch, decode and execute one instruction.
     pub fn execute(&mut self) -> Result<(), String> {
         use ByteRegister::*;
-        use WordRegister::*;
         use Condition::*;
+        use WordRegister::*;
 
         // Empty the current instruction strings.
         self.curr_instr = Default::default();
@@ -491,7 +519,7 @@ impl CPU {
         }
         let opcode = self.read_immediate_byte();
 
-        // Decode and execute.
+        // Decode and execute. Some instructions need cycle corrections.
         match opcode {
             0x00 => self.no_operation(),
             0x01 => self.load(BC, Immediate()),
@@ -534,7 +562,6 @@ impl CPU {
             0x3D => self.decrement(A),
             0x3E => self.load(A, Immediate()),
             // //0x40..=0x7F => unimplemented!(), // TODO: LD
-            0xC3 => self.jump(Immediate()),
             0xA8 => self.xor(B),
             0xA9 => self.xor(C),
             0xAA => self.xor(D),
@@ -543,7 +570,16 @@ impl CPU {
             0xAD => self.xor(L),
             0xAE => self.xor(Indirect::HL),
             0xAF => self.xor(A),
+            0xC2 => self.jump(Immediate(), Zero(false)),
+            0xC3 => self.jump(Immediate(), Unconditional),
+            0xCA => self.jump(Immediate(), Zero(true)),
             // //0xCB => unimplemented!(), // TODO: Go to CB table.
+            0xD2 => self.jump(Immediate(), Carry(false)),
+            0xDA => self.jump(Immediate(), Carry(true)),
+            0xE9 => {
+                self.jump(HL, Unconditional);
+                self.cycle -= 1;
+            }
             0xEE => self.xor(Immediate()),
 
             _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
