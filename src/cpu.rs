@@ -1,4 +1,5 @@
 use crate::memory::Memory;
+use bitflags::bitflags;
 
 trait Read<T> {
     fn read(&self, cpu: &mut CPU) -> T;
@@ -247,6 +248,15 @@ impl Condition {
     }
 }
 
+bitflags! {
+    struct Flags: u8 {
+        const Z = 0b1000_0000;
+        const N = 0b0100_0000;
+        const H = 0b0010_0000;
+        const C = 0b0001_0000;
+    }
+}
+
 struct Registers {
     a: u8,
     f: u8,
@@ -306,20 +316,28 @@ impl Registers {
         u16::from_le_bytes([self.l, self.h])
     }
 
+    fn flags(&self) -> Flags {
+        Flags::from_bits_truncate(self.f)
+    }
+
+    fn set_flags(&mut self, flags: Flags) {
+        self.f = flags.bits();
+    }
+
     fn z_flag(&self) -> bool {
-        (self.f & 0x80) != 0
+        self.flags().contains(Flags::Z)
     }
 
     fn n_flag(&self) -> bool {
-        (self.f & 0x40) != 0
+        self.flags().contains(Flags::N)
     }
 
     fn h_flag(&self) -> bool {
-        (self.f & 0x20) != 0
+        self.flags().contains(Flags::H)
     }
 
     fn c_flag(&self) -> bool {
-        (self.f & 0x10) != 0
+        self.flags().contains(Flags::C)
     }
 
     fn byte_register(&self, reg: &ByteRegister) -> u8 {
@@ -419,17 +437,17 @@ impl CPU {
     }
 
     /// XOR
-    // TODO: Finish implementation.
     fn xor(&mut self, byte: impl Read<u8>) {
         self.curr_instr = "XOR ".to_string() + &byte.print(self);
 
         self.reg.a ^= byte.read(self);
 
-        if self.reg.a == 0 {
-            self.reg.f = 0b1000_0000;
+        let flags = if self.reg.a == 0 {
+            Flags::Z
         } else {
-            self.reg.f = 0;
-        }
+            Flags::empty()
+        };
+        self.reg.set_flags(flags);
     }
 
     /// LD
