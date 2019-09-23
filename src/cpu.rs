@@ -237,6 +237,14 @@ impl Condition {
         }
         .into()
     }
+
+    fn is_satisfied(&self, cpu: &CPU) -> bool {
+        match self {
+            Condition::Unconditional => true,
+            Condition::Zero(flag) => cpu.reg.z_flag() == *flag,
+            Condition::Carry(flag) => cpu.reg.c_flag() == *flag,
+        }
+    }
 }
 
 struct Registers {
@@ -389,15 +397,9 @@ impl CPU {
     fn jump(&mut self, word: impl Read<u16>, cond: Condition) {
         self.curr_instr = "JP".to_string() + &cond.print() + " " + &word.print(self);
 
-        let shall_jump = match cond {
-            Condition::Unconditional => true,
-            Condition::Zero(flag) => self.reg.z_flag() == flag,
-            Condition::Carry(flag) => self.reg.c_flag() == flag,
-        };
-
         let address = word.read(self);
 
-        if shall_jump {
+        if cond.is_satisfied(self) {
             self.cycle += 1;
             self.reg.pc = address;
         }
@@ -408,19 +410,13 @@ impl CPU {
     fn jump_relative(&mut self, cond: Condition) {
         self.curr_instr = "JR".to_string() + &cond.print() + " ";
 
-        let shall_jump = match cond {
-            Condition::Unconditional => true,
-            Condition::Zero(flag) => self.reg.z_flag() == flag,
-            Condition::Carry(flag) => self.reg.c_flag() == flag,
-        };
-
         let offset = self.read_immediate_byte() as i8;
+        self.curr_instr += &format!("{}", offset);
 
-        if shall_jump {
+        if cond.is_satisfied(self) {
+            self.cycle += 1;
             self.reg.pc = (self.reg.pc as i32 + offset as i32) as u16;
         }
-
-        self.curr_instr += &format!("{}", offset);
     }
 
     /// XOR
@@ -515,7 +511,7 @@ impl CPU {
 
         // Fetch.
         if self.print_instructions {
-            print!("{:04X}: ", self.reg.pc);
+            print!("{:11}, {:04X}: ", self.cycle, self.reg.pc);
         }
         let opcode = self.read_immediate_byte();
 
@@ -536,6 +532,7 @@ impl CPU {
             0x14 => self.increment(D),
             0x15 => self.decrement(D),
             0x16 => self.load(D, Immediate()),
+            0x18 => self.jump_relative(Unconditional),
             0x1B => self.decrement(DE),
             0x1C => self.increment(E),
             0x1D => self.decrement(E),
@@ -546,16 +543,19 @@ impl CPU {
             0x24 => self.increment(H),
             0x25 => self.decrement(H),
             0x26 => self.load(H, Immediate()),
+            0x28 => self.jump_relative(Zero(true)),
             0x2B => self.decrement(HL),
             0x2C => self.increment(L),
             0x2D => self.decrement(L),
             0x2E => self.load(L, Immediate()),
+            0x30 => self.jump_relative(Carry(false)),
             0x31 => self.load(SP, Immediate()),
             0x32 => self.load_and_decrement_hl(Indirect::HL, A),
             0x33 => self.increment(SP),
             0x34 => self.increment(Indirect::HL),
             0x35 => self.decrement(Indirect::HL),
             0x36 => self.load(B, Indirect::HL),
+            0x38 => self.jump_relative(Carry(true)),
             0x3A => self.load_and_decrement_hl(A, Indirect::HL),
             0x3B => self.decrement(SP),
             0x3C => self.increment(A),
