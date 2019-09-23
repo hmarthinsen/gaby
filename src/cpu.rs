@@ -65,7 +65,7 @@ impl Read<u8> for ByteRegister {
     }
 
     fn print(&self, _: &CPU) -> String {
-        self.str().into()
+        self.str()
     }
 }
 
@@ -75,7 +75,7 @@ impl Write<u8> for ByteRegister {
     }
 
     fn print(&self, _: &CPU) -> String {
-        self.str().into()
+        self.str()
     }
 }
 
@@ -104,7 +104,7 @@ impl Read<u16> for WordRegister {
     }
 
     fn print(&self, _: &CPU) -> String {
-        self.str().into()
+        self.str()
     }
 }
 
@@ -114,7 +114,7 @@ impl Write<u16> for WordRegister {
     }
 
     fn print(&self, _: &CPU) -> String {
-        self.str().into()
+        self.str()
     }
 }
 
@@ -414,7 +414,7 @@ impl CPU {
 
         if cond.is_satisfied(self) {
             self.cycle += 1;
-            self.reg.pc = (self.reg.pc as i32 + offset as i32) as u16;
+            self.reg.pc = (i32::from(self.reg.pc) + i32::from(offset)) as u16;
         }
     }
 
