@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     mem.load_rom("data/tetris.gb")?;
 
     let mut cpu = CPU::new(mem);
+    cpu.set_print_instructions(true);
 
     loop {
         cpu.execute()?;
