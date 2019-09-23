@@ -1,0 +1,509 @@
+use crate::memory::Memory;
+
+trait Read<T> {
+    fn read(&self, cpu: &mut CPU) -> T;
+}
+
+trait Write<T> {
+    fn write(&self, cpu: &mut CPU, data: T);
+}
+
+struct Immediate();
+
+impl Read<u8> for Immediate {
+    fn read(&self, cpu: &mut CPU) -> u8 {
+        let byte = cpu.read_immediate_byte();
+        cpu.curr_instr.source = format!("{:#04X}", byte);
+        byte
+    }
+}
+
+impl Read<u16> for Immediate {
+    fn read(&self, cpu: &mut CPU) -> u16 {
+        let word = cpu.read_immediate_word();
+        cpu.curr_instr.source = format!("{:#06X}", word);
+        word
+    }
+}
+
+enum ByteRegister {
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+}
+
+impl ByteRegister {
+    fn str(&self) -> &str {
+        match self {
+            ByteRegister::A => "A",
+            ByteRegister::B => "B",
+            ByteRegister::C => "C",
+            ByteRegister::D => "D",
+            ByteRegister::E => "E",
+            ByteRegister::H => "H",
+            ByteRegister::L => "L",
+        }
+    }
+}
+
+impl Read<u8> for ByteRegister {
+    fn read(&self, cpu: &mut CPU) -> u8 {
+        cpu.curr_instr.source = String::from(self.str());
+        cpu.reg.byte_register(self)
+    }
+}
+
+impl Write<u8> for ByteRegister {
+    fn write(&self, cpu: &mut CPU, data: u8) {
+        cpu.curr_instr.target = String::from(self.str());
+        cpu.reg.set_byte_register(self, data);
+    }
+}
+
+enum WordRegister {
+    BC,
+    DE,
+    HL,
+    SP,
+}
+
+impl WordRegister {
+    fn str(&self) -> &str {
+        match self {
+            WordRegister::BC => "BC",
+            WordRegister::DE => "DE",
+            WordRegister::HL => "HL",
+            WordRegister::SP => "SP",
+        }
+    }
+}
+
+impl Read<u16> for WordRegister {
+    fn read(&self, cpu: &mut CPU) -> u16 {
+        cpu.curr_instr.source = String::from(self.str());
+        cpu.reg.word_register(self)
+    }
+}
+
+impl Write<u16> for WordRegister {
+    fn write(&self, cpu: &mut CPU, data: u16) {
+        cpu.curr_instr.target = String::from(self.str());
+        cpu.reg.set_word_register(self, data);
+    }
+}
+
+enum Indirect {
+    BC,
+    DE,
+    HL,
+    SP,
+    Immediate,
+}
+
+impl Read<u8> for Indirect {
+    fn read(&self, cpu: &mut CPU) -> u8 {
+        let address = match self {
+            Indirect::BC => {
+                cpu.curr_instr.source = String::from("(BC)");
+                cpu.reg.word_register(&WordRegister::BC)
+            }
+            Indirect::DE => {
+                cpu.curr_instr.source = String::from("(DE)");
+                cpu.reg.word_register(&WordRegister::DE)
+            }
+            Indirect::HL => {
+                cpu.curr_instr.source = String::from("(HL)");
+                cpu.reg.word_register(&WordRegister::HL)
+            }
+            Indirect::SP => {
+                cpu.curr_instr.source = String::from("(SP)");
+                cpu.reg.word_register(&WordRegister::SP)
+            }
+            Indirect::Immediate => {
+                let word = cpu.read_immediate_word();
+                cpu.curr_instr.source = format!("({:04X})", word);
+                word
+            }
+        };
+        cpu.read_byte(address)
+    }
+}
+
+impl Write<u8> for Indirect {
+    fn write(&self, cpu: &mut CPU, data: u8) {
+        let address = match self {
+            Indirect::BC => {
+                cpu.curr_instr.target = String::from("(BC)");
+                cpu.reg.word_register(&WordRegister::BC)
+            }
+            Indirect::DE => {
+                cpu.curr_instr.target = String::from("(DE)");
+                cpu.reg.word_register(&WordRegister::DE)
+            }
+            Indirect::HL => {
+                cpu.curr_instr.target = String::from("(HL)");
+                cpu.reg.word_register(&WordRegister::HL)
+            }
+            Indirect::SP => {
+                cpu.curr_instr.target = String::from("(SP)");
+                cpu.reg.word_register(&WordRegister::SP)
+            }
+            Indirect::Immediate => {
+                let word = cpu.read_immediate_word();
+                cpu.curr_instr.target = format!("({:04X})", word);
+                word
+            }
+        };
+        cpu.write_byte(address, data);
+    }
+}
+
+trait Decrement<T> {
+    fn decrement(&mut self) -> T;
+}
+
+impl Decrement<u8> for u8 {
+    fn decrement(&mut self) -> u8 {
+        self.wrapping_sub(1)
+    }
+}
+
+impl Decrement<u16> for u16 {
+    fn decrement(&mut self) -> u16 {
+        self.wrapping_sub(1)
+    }
+}
+
+trait Increment<T> {
+    fn increment(&mut self) -> T;
+}
+
+impl Increment<u8> for u8 {
+    fn increment(&mut self) -> u8 {
+        self.wrapping_add(1)
+    }
+}
+
+impl Increment<u16> for u16 {
+    fn increment(&mut self) -> u16 {
+        self.wrapping_add(1)
+    }
+}
+
+struct Registers {
+    a: u8,
+    f: u8,
+    b: u8,
+    c: u8,
+    d: u8,
+    e: u8,
+    h: u8,
+    l: u8,
+    sp: u16,
+    pc: u16,
+}
+
+impl Registers {
+    pub fn new() -> Self {
+        Self {
+            a: 0x01,
+            f: 0xB0,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xD8,
+            h: 0x01,
+            l: 0x4D,
+            sp: 0xFFFE,
+            pc: 0x0100,
+        }
+    }
+
+    fn set_bc(&mut self, value: u16) {
+        let bytes = value.to_le_bytes();
+        self.c = bytes[0];
+        self.b = bytes[1];
+    }
+
+    fn bc(&self) -> u16 {
+        u16::from_le_bytes([self.c, self.b])
+    }
+
+    fn set_de(&mut self, value: u16) {
+        let bytes = value.to_le_bytes();
+        self.e = bytes[0];
+        self.d = bytes[1];
+    }
+
+    fn de(&self) -> u16 {
+        u16::from_le_bytes([self.e, self.d])
+    }
+
+    fn set_hl(&mut self, value: u16) {
+        let bytes = value.to_le_bytes();
+        self.l = bytes[0];
+        self.h = bytes[1];
+    }
+
+    fn hl(&self) -> u16 {
+        u16::from_le_bytes([self.l, self.h])
+    }
+
+    fn byte_register(&self, reg: &ByteRegister) -> u8 {
+        match reg {
+            ByteRegister::A => self.a,
+            ByteRegister::B => self.b,
+            ByteRegister::C => self.c,
+            ByteRegister::D => self.d,
+            ByteRegister::E => self.e,
+            ByteRegister::H => self.h,
+            ByteRegister::L => self.l,
+        }
+    }
+
+    fn set_byte_register(&mut self, reg: &ByteRegister, value: u8) {
+        match reg {
+            ByteRegister::A => self.a = value,
+            ByteRegister::B => self.b = value,
+            ByteRegister::C => self.c = value,
+            ByteRegister::D => self.d = value,
+            ByteRegister::E => self.e = value,
+            ByteRegister::H => self.h = value,
+            ByteRegister::L => self.l = value,
+        }
+    }
+
+    fn word_register(&self, reg: &WordRegister) -> u16 {
+        match reg {
+            WordRegister::BC => self.bc(),
+            WordRegister::DE => self.de(),
+            WordRegister::HL => self.hl(),
+            WordRegister::SP => self.sp,
+        }
+    }
+
+    fn set_word_register(&mut self, reg: &WordRegister, value: u16) {
+        match reg {
+            WordRegister::BC => self.set_bc(value),
+            WordRegister::DE => self.set_de(value),
+            WordRegister::HL => self.set_hl(value),
+            WordRegister::SP => self.sp = value,
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+struct Instruction {
+    mnemonic: String,
+    target: String,
+    source: String,
+}
+
+impl Instruction {
+    fn print(&self) {
+        if self.source.is_empty() {
+            if self.target.is_empty() {
+                println!("{}", self.mnemonic);
+            } else {
+                println!("{:<8} {}", self.mnemonic, self.target);
+            }
+        } else {
+            if self.target.is_empty() {
+                println!("{:<8} {}", self.mnemonic, self.source);
+            } else {
+                let target = self.target.clone() + ",";
+                println!("{:<8} {:<8} {}", self.mnemonic, target, self.source);
+            }
+        }
+    }
+}
+
+pub struct CPU {
+    reg: Registers,
+    cycle: u64,
+    mem: Memory,
+    curr_instr: Instruction,
+}
+
+impl CPU {
+    pub fn new(mem: Memory) -> Self {
+        Self {
+            reg: Registers::new(),
+            cycle: 0,
+            mem,
+            curr_instr: Default::default(),
+        }
+    }
+
+    /// NOP
+    fn no_operation(&mut self) {
+        self.curr_instr.mnemonic = "NOP".into();
+    }
+
+    /// JP
+    fn jump(&mut self, word: impl Read<u16>) {
+        self.curr_instr.mnemonic = "JP".into();
+        self.cycle += 1;
+        self.reg.pc = word.read(self);
+    }
+
+    /// XOR
+    fn xor(&mut self, byte: impl Read<u8>) {
+        self.curr_instr.mnemonic = "XOR".into();
+
+        self.reg.a ^= byte.read(self);
+
+        if self.reg.a == 0 {
+            self.reg.f = 0b1000_0000;
+        } else {
+            self.reg.f = 0;
+        }
+    }
+
+    /// LD
+    fn load<T>(&mut self, target: impl Write<T>, source: impl Read<T>) {
+        self.curr_instr.mnemonic = "LD".into();
+
+        let data = source.read(self);
+        target.write(self, data);
+    }
+
+    /// DEC
+    fn decrement<T: Decrement<T>>(&mut self, data: impl Read<T> + Write<T>) {
+        self.curr_instr.mnemonic = "DEC".into();
+
+        let result = data.read(self).decrement();
+        data.write(self, result);
+
+        self.curr_instr.source = "".into();
+    }
+
+    /// LDD
+    fn load_and_decrement_hl<T: Decrement<T>>(
+        &mut self,
+        target: impl Write<T>,
+        source: impl Read<T>,
+    ) {
+        self.load(target, source);
+
+        let temp_instr = self.curr_instr.clone();
+
+        self.decrement(WordRegister::HL);
+
+        self.curr_instr = temp_instr;
+        self.curr_instr.mnemonic = "LDD".into();
+    }
+
+    fn increment<T: Increment<T>>(&mut self, data: impl Read<T> + Write<T>) {
+        self.curr_instr.mnemonic = "INC".into();
+
+        let result = data.read(self).increment();
+        data.write(self, result);
+
+        self.curr_instr.source = "".into();
+    }
+
+    fn read_immediate_byte(&mut self) -> u8 {
+        self.cycle += 1;
+        let data = self.mem.read_byte(self.reg.pc);
+        self.reg.pc += 1;
+
+        data
+    }
+
+    fn read_immediate_word(&mut self) -> u16 {
+        self.cycle += 2;
+        let data = self.mem.read_word(self.reg.pc);
+        self.reg.pc += 2;
+
+        data
+    }
+
+    fn read_byte(&mut self, address: u16) -> u8 {
+        self.cycle += 1;
+        self.mem.read_byte(address)
+    }
+
+    fn write_byte(&mut self, address: u16, data: u8) {
+        self.cycle += 1;
+        self.mem.write_byte(address, data);
+    }
+
+    /// Fetch, decode and execute one instruction.
+    pub fn execute(&mut self) -> Result<(), String> {
+        use ByteRegister::*;
+        use WordRegister::*;
+
+        // Empty the current instruction strings.
+        self.curr_instr = Default::default();
+
+        // Fetch.
+        print!("{:04X}: ", self.reg.pc);
+        let opcode = self.read_immediate_byte();
+
+        // Decode and execute.
+        match opcode {
+            0x00 => self.no_operation(),
+            0x01 => self.load(BC, Immediate()),
+            0x03 => self.increment(BC),
+            0x04 => self.increment(B),
+            0x05 => self.decrement(B),
+            0x06 => self.load(B, Immediate()),
+            0x0B => self.decrement(BC),
+            0x0C => self.increment(C),
+            0x0D => self.decrement(C),
+            0x0E => self.load(C, Immediate()),
+            0x11 => self.load(DE, Immediate()),
+            0x13 => self.increment(DE),
+            0x14 => self.increment(D),
+            0x15 => self.decrement(D),
+            0x16 => self.load(D, Immediate()),
+            0x1B => self.decrement(DE),
+            0x1C => self.increment(E),
+            0x1D => self.decrement(E),
+            0x1E => self.load(E, Immediate()),
+            0x21 => self.load(HL, Immediate()),
+            0x23 => self.increment(HL),
+            0x24 => self.increment(H),
+            0x25 => self.decrement(H),
+            0x26 => self.load(H, Immediate()),
+            0x2B => self.decrement(HL),
+            0x2C => self.increment(L),
+            0x2D => self.decrement(L),
+            0x2E => self.load(L, Immediate()),
+            0x31 => self.load(SP, Immediate()),
+            0x32 => self.load_and_decrement_hl(Indirect::HL, A),
+            0x33 => self.increment(SP),
+            0x34 => self.increment(Indirect::HL),
+            0x35 => self.decrement(Indirect::HL),
+            0x36 => self.load(B, Indirect::HL),
+            0x3A => self.load_and_decrement_hl(A, Indirect::HL),
+            0x3B => self.decrement(SP),
+            0x3C => self.increment(A),
+            0x3D => self.decrement(A),
+            0x3E => self.load(A, Immediate()),
+            // //0x40..=0x7F => unimplemented!(), // TODO: LD
+            0xC3 => self.jump(Immediate()),
+            0xA8 => self.xor(B),
+            0xA9 => self.xor(C),
+            0xAA => self.xor(D),
+            0xAB => self.xor(E),
+            0xAC => self.xor(H),
+            0xAD => self.xor(L),
+            0xAE => self.xor(Indirect::HL),
+            0xAF => self.xor(A),
+            // //0xCB => unimplemented!(), // TODO: Go to CB table.
+            0xEE => self.xor(Immediate()),
+
+            _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
+        }
+
+        self.curr_instr.print();
+
+        Ok(())
+    }
+}
