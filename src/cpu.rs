@@ -210,6 +210,12 @@ impl Increment<u16> for u16 {
     }
 }
 
+enum Condition {
+    Unconditional,
+    Zero(bool),
+    Carry(bool),
+}
+
 struct Registers {
     a: u8,
     f: u8,
@@ -267,6 +273,22 @@ impl Registers {
 
     fn hl(&self) -> u16 {
         u16::from_le_bytes([self.l, self.h])
+    }
+
+    fn z_flag(&self) -> bool {
+        (self.f & 0x80) != 0
+    }
+
+    fn n_flag(&self) -> bool {
+        (self.f & 0x40) != 0
+    }
+
+    fn h_flag(&self) -> bool {
+        (self.f & 0x20) != 0
+    }
+
+    fn c_flag(&self) -> bool {
+        (self.f & 0x10) != 0
     }
 
     fn byte_register(&self, reg: &ByteRegister) -> u8 {
@@ -345,6 +367,38 @@ impl CPU {
         self.curr_instr = "JP ".to_string() + &word.print(self);
         self.cycle += 1;
         self.reg.pc = word.read(self);
+    }
+
+    /// JR
+    fn jump_relative(&mut self, cond: Condition) {
+        self.curr_instr = "JR".to_string();
+        let shall_jump = match cond {
+            Condition::Unconditional => true,
+            Condition::Zero(flag) => {
+                if flag {
+                    self.curr_instr.push_str("Z");
+                } else {
+                    self.curr_instr.push_str("NZ");
+                }
+                self.reg.z_flag() == flag
+                }
+            Condition::Carry(flag) => {
+                if flag {
+                    self.curr_instr.push_str("C");
+                } else {
+                    self.curr_instr.push_str("NC");
+                }
+                self.reg.c_flag() == flag
+                }
+        };
+
+        let offset = self.read_immediate_byte() as i8;
+
+        if shall_jump {
+            self.reg.pc = (self.reg.pc as i32 + offset as i32) as u16;
+        }
+
+        self.curr_instr += &format!(" {}", offset);
     }
 
     /// XOR
@@ -426,6 +480,7 @@ impl CPU {
     pub fn execute(&mut self) -> Result<(), String> {
         use ByteRegister::*;
         use WordRegister::*;
+        use Condition::*;
 
         // Empty the current instruction strings.
         self.curr_instr = Default::default();
@@ -457,6 +512,7 @@ impl CPU {
             0x1C => self.increment(E),
             0x1D => self.decrement(E),
             0x1E => self.load(E, Immediate()),
+            0x20 => self.jump_relative(Zero(false)),
             0x21 => self.load(HL, Immediate()),
             0x23 => self.increment(HL),
             0x24 => self.increment(H),
