@@ -124,7 +124,6 @@ pub enum Indirect {
     BC,
     DE,
     HL,
-    SP,
     Immediate,
 }
 
@@ -135,7 +134,6 @@ impl Indirect {
             BC => "(BC)".into(),
             DE => "(DE)".into(),
             HL => "(HL)".into(),
-            SP => "(SP)".into(),
             Immediate => {
                 let word = cpu.mem.read_word(cpu.reg.pc);
                 format!("({:04X})", word)
@@ -149,7 +147,6 @@ impl Indirect {
             BC => cpu.reg.word_register(&WordRegister::BC),
             DE => cpu.reg.word_register(&WordRegister::DE),
             HL => cpu.reg.word_register(&WordRegister::HL),
-            SP => cpu.reg.word_register(&WordRegister::SP),
             Immediate => cpu.read_immediate_word(),
         }
     }

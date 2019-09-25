@@ -81,14 +81,6 @@ impl Registers {
         self.flags().contains(Flags::Z)
     }
 
-    pub fn n_flag(&self) -> bool {
-        self.flags().contains(Flags::N)
-    }
-
-    pub fn h_flag(&self) -> bool {
-        self.flags().contains(Flags::H)
-    }
-
     pub fn c_flag(&self) -> bool {
         self.flags().contains(Flags::C)
     }
