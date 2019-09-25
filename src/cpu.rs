@@ -52,6 +52,16 @@ impl CPU {
         self.mem.write_byte(address, data);
     }
 
+    fn read_word(&mut self, address: u16) -> u16 {
+        self.cycle += 2;
+        self.mem.read_word(address)
+    }
+
+    fn write_word(&mut self, address: u16, data: u16) {
+        self.cycle += 2;
+        self.mem.write_word(address, data);
+    }
+
     /// Fetch, decode and execute one instruction.
     pub fn execute(&mut self) -> Result<(), String> {
         use ByteRegister::*;
@@ -104,8 +114,8 @@ impl CPU {
             0x31 => self.load(SP, Immediate()),
             0x32 => self.load_and_decrement_hl(Indirect::HL, A),
             0x33 => self.increment(SP),
-            0x34 => self.increment(Indirect::HL),
-            0x35 => self.decrement(Indirect::HL),
+            0x34 => self.increment::<u8, _>(Indirect::HL),
+            0x35 => self.decrement::<u8, _>(Indirect::HL),
             0x36 => self.load(B, Indirect::HL),
             0x38 => self.jump_relative(Carry(true)),
             0x3A => self.load_and_decrement_hl(A, Indirect::HL),

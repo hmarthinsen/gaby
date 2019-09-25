@@ -129,7 +129,7 @@ impl CPU {
 
     /// DEC
     // TODO: Finish implementation.
-    pub fn decrement<T: Decrement<T>>(&mut self, data: impl Read<T> + Write<T>) {
+    pub fn decrement<T: Decrement<T>, U: Read<T> + Write<T>>(&mut self, data: U) {
         self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
 
         let result = data.read(self).decrement();
@@ -152,7 +152,7 @@ impl CPU {
 
     /// INC
     // TODO: Finish implementation.
-    pub fn increment<T: Increment<T>>(&mut self, data: impl Read<T> + Write<T>) {
+    pub fn increment<T: Increment<T>, U: Read<T> + Write<T>>(&mut self, data: U) {
         self.curr_instr = "INC ".to_string() + &Write::to_string(&data, self);
 
         let result = data.read(self).increment();

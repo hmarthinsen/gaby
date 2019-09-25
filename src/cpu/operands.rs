@@ -166,10 +166,32 @@ impl Read<u8> for Indirect {
     }
 }
 
+impl Read<u16> for Indirect {
+    fn read(&self, cpu: &mut CPU) -> u16 {
+        let address = self.address(cpu);
+        cpu.read_word(address)
+    }
+
+    fn to_string(&self, cpu: &CPU) -> String {
+        self.to_string(cpu)
+    }
+}
+
 impl Write<u8> for Indirect {
     fn write(&self, cpu: &mut CPU, data: u8) {
         let address = self.address(cpu);
         cpu.write_byte(address, data);
+    }
+
+    fn to_string(&self, cpu: &CPU) -> String {
+        self.to_string(cpu)
+    }
+}
+
+impl Write<u16> for Indirect {
+    fn write(&self, cpu: &mut CPU, data: u16) {
+        let address = self.address(cpu);
+        cpu.write_word(address, data);
     }
 
     fn to_string(&self, cpu: &CPU) -> String {

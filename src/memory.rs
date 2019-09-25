@@ -37,4 +37,10 @@ impl Memory {
     pub fn write_byte(&mut self, address: u16, data: u8) {
         self.data[address as usize] = data;
     }
+
+    pub fn write_word(&mut self, address: u16, data: u16) {
+        let bytes = data.to_le_bytes();
+        self.data[address as usize] = bytes[0];
+        self.data[(address + 1) as usize] = bytes[1];
+    }
 }
