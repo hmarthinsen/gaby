@@ -9,6 +9,7 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// Initialize memory with random data.
     pub fn new() -> Self {
         let mut data = [0u8; 0x10000];
         rand::thread_rng().fill(&mut data[..]);
