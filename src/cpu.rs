@@ -81,20 +81,25 @@ impl CPU {
         match opcode {
             0x00 => self.no_operation(),
             0x01 => self.load(BC, Immediate()),
+            0x02 => self.load(Indirect::BC, A),
             0x03 => self.increment(BC),
             0x04 => self.increment(B),
             0x05 => self.decrement(B),
             0x06 => self.load(B, Immediate()),
+            0x08 => self.load(Indirect::Immediate, SP),
+            0x0A => self.load(A, Indirect::BC),
             0x0B => self.decrement(BC),
             0x0C => self.increment(C),
             0x0D => self.decrement(C),
             0x0E => self.load(C, Immediate()),
             0x11 => self.load(DE, Immediate()),
+            0x12 => self.load(Indirect::DE, A),
             0x13 => self.increment(DE),
             0x14 => self.increment(D),
             0x15 => self.decrement(D),
             0x16 => self.load(D, Immediate()),
             0x18 => self.jump_relative(Unconditional),
+            0x1A => self.load(A, Indirect::DE),
             0x1B => self.decrement(DE),
             0x1C => self.increment(E),
             0x1D => self.decrement(E),
@@ -123,7 +128,8 @@ impl CPU {
             0x3C => self.increment(A),
             0x3D => self.decrement(A),
             0x3E => self.load(A, Immediate()),
-            // //0x40..=0x7F => unimplemented!(), // TODO: LD
+            0x40..=0x75 => self.select_load(opcode),
+            0x77..=0x7F => self.select_load(opcode),
             0xA8 => self.xor(B),
             0xA9 => self.xor(C),
             0xAA => self.xor(D),
@@ -142,7 +148,10 @@ impl CPU {
                 self.jump(HL, Unconditional);
                 self.cycle -= 1;
             }
+            0xEA => self.load(Indirect::Immediate, A),
             0xEE => self.xor(Immediate()),
+            0xF9 => self.load(SP, HL),
+            0xFA => self.load(A, Indirect::Immediate),
 
             _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
         }
@@ -152,5 +161,42 @@ impl CPU {
         }
 
         Ok(())
+    }
+
+    /// Select target and source for load instruction based on opcode.
+    fn select_load(&mut self, opcode: u8) {
+        let source_bits = opcode & 0b0000_0111;
+        use ByteRegister::*;
+        let source: Option<ByteRegister> = match source_bits {
+            0x0 => Some(B),
+            0x1 => Some(C),
+            0x2 => Some(D),
+            0x3 => Some(E),
+            0x4 => Some(H),
+            0x5 => Some(L),
+            0x6 => None, // Signifies Indirect::HL
+            0x7 => Some(A),
+            _ => panic!("This should never happen."),
+        };
+
+        let target_bits = (opcode & 0b0011_1000) >> 3;
+        let target: Option<ByteRegister> = match target_bits {
+            0x0 => Some(B),
+            0x1 => Some(C),
+            0x2 => Some(D),
+            0x3 => Some(E),
+            0x4 => Some(H),
+            0x5 => Some(L),
+            0x6 => None, // Signifies Indirect::HL
+            0x7 => Some(A),
+            _ => panic!("This should never happen."),
+        };
+
+        match (target, source) {
+            (Some(target_reg), Some(source_reg)) => self.load(target_reg, source_reg),
+            (Some(target_reg), None) => self.load(target_reg, Indirect::HL),
+            (None, Some(source_reg)) => self.load(Indirect::HL, source_reg),
+            (None, None) => self.load::<u8, _, _>(Indirect::HL, Indirect::HL),
+        }
     }
 }
