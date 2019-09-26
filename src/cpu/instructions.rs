@@ -118,7 +118,6 @@ impl CPU {
     }
 
     /// LD
-    // TODO: Finish implementation.
     pub fn load<T, U: Write<T>, V: Read<T>>(&mut self, target: U, source: V) {
         self.curr_instr =
             "LD ".to_string() + &target.to_string(self) + ", " + &source.to_string(self);

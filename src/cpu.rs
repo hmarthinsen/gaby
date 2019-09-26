@@ -149,7 +149,10 @@ impl CPU {
             }
             0xEA => self.load(Indirect::Immediate, A),
             0xEE => self.xor(Immediate()),
-            0xF9 => self.load(SP, HL),
+            0xF9 => {
+                self.load(SP, HL);
+                self.cycle += 1;
+            }
             0xFA => self.load(A, Indirect::Immediate),
 
             _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
