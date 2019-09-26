@@ -127,7 +127,6 @@ impl CPU {
     }
 
     /// DEC
-    // TODO: Finish implementation.
     pub fn decrement_byte<T: Read<u8> + Write<u8>>(&mut self, data: T) {
         self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
 
@@ -141,6 +140,7 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
+    /// DEC
     pub fn decrement_word<T: Read<u16> + Write<u16>>(&mut self, data: T) {
         self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
 
