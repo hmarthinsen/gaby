@@ -128,11 +128,26 @@ impl CPU {
 
     /// DEC
     // TODO: Finish implementation.
-    pub fn decrement<T: Decrement<T>, U: Read<T> + Write<T>>(&mut self, data: U) {
+    pub fn decrement_byte<T: Read<u8> + Write<u8>>(&mut self, data: T) {
         self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
 
         let result = data.read(self).decrement();
         data.write(self, result);
+
+        let mut flags = self.reg.flags();
+        flags.set(Flags::Z, result == 0);
+        flags.insert(Flags::N);
+        flags.set(Flags::H, (result & 0x0F) == 0x0F);
+        self.reg.set_flags(flags);
+    }
+
+    pub fn decrement_word<T: Read<u16> + Write<u16>>(&mut self, data: T) {
+        self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
+
+        let result = data.read(self).decrement();
+        data.write(self, result);
+
+        self.cycle += 1;
     }
 
     /// LDD
@@ -144,7 +159,7 @@ impl CPU {
     ) {
         let instr = "LDD ".to_string() + &target.to_string(self) + ", " + &source.to_string(self);
         self.load(target, source);
-        self.decrement(WordRegister::HL);
+        self.decrement_word(WordRegister::HL);
 
         self.curr_instr = instr;
     }
