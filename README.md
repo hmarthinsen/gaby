@@ -2,6 +2,8 @@
 
 # Gaby
 A simple Game Boy emulator written in Rust.
+NB! This is a work in progress.
+It is not possible to play games on this emulator yet.
 
 ## Some notes
 
