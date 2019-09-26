@@ -158,4 +158,10 @@ impl CPU {
         let result = data.read(self).increment();
         data.write(self, result);
     }
+
+    /// HALT
+    // TODO: Finish implementation.
+    pub fn halt(&self) {
+        unimplemented!();
+    }
 }

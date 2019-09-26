@@ -128,8 +128,7 @@ impl CPU {
             0x3C => self.increment(A),
             0x3D => self.decrement(A),
             0x3E => self.load(A, Immediate()),
-            0x40..=0x75 => self.select_load(opcode),
-            0x77..=0x7F => self.select_load(opcode),
+            0x40..=0x7F => self.select_load_or_halt(opcode),
             0xA8 => self.xor(B),
             0xA9 => self.xor(C),
             0xAA => self.xor(D),
@@ -164,7 +163,7 @@ impl CPU {
     }
 
     /// Select target and source for load instruction based on opcode.
-    fn select_load(&mut self, opcode: u8) {
+    fn select_load_or_halt(&mut self, opcode: u8) {
         let source_bits = opcode & 0b0000_0111;
         use ByteRegister::*;
         let source: Option<ByteRegister> = match source_bits {
@@ -196,7 +195,7 @@ impl CPU {
             (Some(target_reg), Some(source_reg)) => self.load(target_reg, source_reg),
             (Some(target_reg), None) => self.load(target_reg, Indirect::HL),
             (None, Some(source_reg)) => self.load(Indirect::HL, source_reg),
-            (None, None) => self.load::<u8, _, _>(Indirect::HL, Indirect::HL),
+            (None, None) => self.halt(),
         }
     }
 }
