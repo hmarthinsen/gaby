@@ -166,12 +166,27 @@ impl CPU {
     }
 
     /// INC
-    // TODO: Finish implementation.
-    pub fn increment<T: Increment<T>, U: Read<T> + Write<T>>(&mut self, data: U) {
+    pub fn increment_byte<T: Read<u8> + Write<u8>>(&mut self, data: T) {
         self.curr_instr = "INC ".to_string() + &Write::to_string(&data, self);
 
         let result = data.read(self).increment();
         data.write(self, result);
+
+        let mut flags = self.reg.flags();
+        flags.set(Flags::Z, result == 0);
+        flags.remove(Flags::N);
+        flags.set(Flags::H, result.trailing_zeros() >= 4);
+        self.reg.set_flags(flags);
+    }
+
+    /// INC
+    pub fn increment_word<T: Read<u16> + Write<u16>>(&mut self, data: T) {
+        self.curr_instr = "INC ".to_string() + &Write::to_string(&data, self);
+
+        let result = data.read(self).increment();
+        data.write(self, result);
+
+        self.cycle += 1;
     }
 
     /// HALT
