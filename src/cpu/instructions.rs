@@ -151,16 +151,17 @@ impl CPU {
     }
 
     /// LDD
-    // TODO: Finish implementation.
     pub fn load_and_decrement_hl<T: Decrement<T>>(
         &mut self,
         target: impl Write<T>,
         source: impl Read<T>,
     ) {
         let instr = "LDD ".to_string() + &target.to_string(self) + ", " + &source.to_string(self);
+
         self.load(target, source);
         self.decrement_word(WordRegister::HL);
 
+        self.cycle -= 1;
         self.curr_instr = instr;
     }
 
