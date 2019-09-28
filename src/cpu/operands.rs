@@ -126,7 +126,7 @@ pub enum Indirect {
     HL,
     Immediate,
     HighImmediate, // (0xFF00 + immediate byte)
-    HighC, // (0xFF00 + C)
+    HighC,         // (0xFF00 + C)
 }
 
 impl Indirect {
@@ -139,11 +139,11 @@ impl Indirect {
             Immediate => {
                 let word = cpu.mem.read_word(cpu.reg.pc);
                 format!("({:#06X})", word)
-            },
+            }
             HighImmediate => {
                 let byte = cpu.mem.read_byte(cpu.reg.pc);
                 format!("(0xFF00 + {:#04X})", byte)
-            },
+            }
             HighC => "(0xFF00 + C)".into(),
         }
     }
