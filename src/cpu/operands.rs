@@ -125,6 +125,8 @@ pub enum Indirect {
     DE,
     HL,
     Immediate,
+    HighImmediate, // (0xFF00 + immediate byte)
+    HighC, // (0xFF00 + C)
 }
 
 impl Indirect {
@@ -136,8 +138,13 @@ impl Indirect {
             HL => "(HL)".into(),
             Immediate => {
                 let word = cpu.mem.read_word(cpu.reg.pc);
-                format!("({:04X})", word)
-            }
+                format!("({:#06X})", word)
+            },
+            HighImmediate => {
+                let byte = cpu.mem.read_byte(cpu.reg.pc);
+                format!("(0xFF00 + {:#04X})", byte)
+            },
+            HighC => "(0xFF00 + C)".into(),
         }
     }
 
@@ -148,6 +155,8 @@ impl Indirect {
             DE => cpu.reg.word_register(&WordRegister::DE),
             HL => cpu.reg.word_register(&WordRegister::HL),
             Immediate => cpu.read_immediate_word(),
+            HighImmediate => 0xFF00 + u16::from(cpu.read_immediate_byte()),
+            HighC => 0xFF00 + u16::from(cpu.reg.byte_register(&ByteRegister::C)),
         }
     }
 }

@@ -143,12 +143,16 @@ impl CPU {
             // //0xCB => unimplemented!(), // TODO: Go to CB table.
             0xD2 => self.jump(Immediate(), Carry(false)),
             0xDA => self.jump(Immediate(), Carry(true)),
+            0xE0 => self.load(Indirect::HighImmediate, A),
+            0xE2 => self.load(Indirect::HighC, A),
             0xE9 => {
                 self.jump(HL, Unconditional);
                 self.cycle -= 1;
             }
             0xEA => self.load(Indirect::Immediate, A),
             0xEE => self.xor(Immediate()),
+            0xF0 => self.load(A, Indirect::HighImmediate),
+            0xF2 => self.load(A, Indirect::HighC),
             0xF9 => {
                 self.load(SP, HL);
                 self.cycle += 1;
