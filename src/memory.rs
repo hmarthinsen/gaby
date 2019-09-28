@@ -60,6 +60,14 @@ impl Memory {
     }
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
+        match address {
+            0x0000..=0x7FFF => return, // Can't write to ROM area.
+            0xC000..=0xDDFF => self.data[(address + 0x2000) as usize] = data, // Write to echo area.
+            0xE000..=0xFDFF => self.data[(address - 0x2000) as usize] = data, // Write to echo area.
+            0xFF00..=0xFFFF => {}      // TODO: I/O registers.
+            _ => {}
+        }
+
         self.data[address as usize] = data;
     }
 
