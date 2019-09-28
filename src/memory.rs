@@ -23,6 +23,18 @@ impl Memory {
         Ok(())
     }
 
+    pub fn read_game_title(&self) -> String {
+        let mut title = String::new();
+        let bytes = &self.data[0x0134..=0x0142];
+        for byte in bytes {
+            if *byte != 0 {
+                title.push(char::from(*byte));
+            }
+        }
+
+        title.trim().into()
+    }
+
     pub fn read_byte(&self, address: u16) -> u8 {
         self.data[address as usize]
     }
