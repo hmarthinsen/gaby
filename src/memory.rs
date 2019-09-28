@@ -20,6 +20,14 @@ impl Memory {
         let mut file = File::open(path)?;
         file.read_exact(&mut self.data[..0x8000])?;
 
+        if self.read_cartridge_type() != 0 {
+            return Err("Only supported cartridge type is ROM only.".into());
+        }
+
+        if self.read_rom_size() != 0 {
+            return Err("Only 32 kB ROMs are supported.".into());
+        }
+
         Ok(())
     }
 
@@ -35,8 +43,12 @@ impl Memory {
         title.trim().into()
     }
 
-    pub fn read_cartridge_type(&self) -> u8 {
+    fn read_cartridge_type(&self) -> u8 {
         self.read_byte(0x0147)
+    }
+
+    fn read_rom_size(&self) -> u8 {
+        self.read_byte(0x0148)
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {

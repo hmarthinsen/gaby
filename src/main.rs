@@ -11,10 +11,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Title: {}", mem.read_game_title());
 
-    if mem.read_cartridge_type() != 0 {
-        return Err("Only supported cartridge type is ROM only.".into());
-    }
-
     let mut cpu = CPU::new(mem);
     cpu.print_instructions = true;
 
