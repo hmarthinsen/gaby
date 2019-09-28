@@ -44,10 +44,7 @@ impl Memory {
     }
 
     pub fn read_word(&self, address: u16) -> u16 {
-        u16::from_le_bytes([
-            self.data[address as usize],
-            self.data[(address + 1) as usize],
-        ])
+        u16::from_le_bytes([self.read_byte(address), self.read_byte(address + 1)])
     }
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
@@ -56,7 +53,7 @@ impl Memory {
 
     pub fn write_word(&mut self, address: u16, data: u16) {
         let bytes = data.to_le_bytes();
-        self.data[address as usize] = bytes[0];
-        self.data[(address + 1) as usize] = bytes[1];
+        self.write_byte(address, bytes[0]);
+        self.write_byte(address + 1, bytes[1]);
     }
 }
