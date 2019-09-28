@@ -9,6 +9,7 @@ use registers::{Flags, Registers};
 
 pub struct CPU {
     reg: Registers,
+    ime: bool, // Interrupt Master Enable flag.
     cycle: u64,
     mem: Memory,
     curr_instr: String,
@@ -19,6 +20,7 @@ impl CPU {
     pub fn new(mem: Memory) -> Self {
         Self {
             reg: Registers::new(),
+            ime: false,
             cycle: 0,
             mem,
             curr_instr: Default::default(),
