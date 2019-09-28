@@ -68,9 +68,6 @@ impl CPU {
         use Condition::*;
         use WordRegister::*;
 
-        // Empty the current instruction strings.
-        self.curr_instr = Default::default();
-
         // Fetch.
         if self.print_instructions {
             print!("{:11}, {:04X}: ", self.cycle, self.reg.pc);
