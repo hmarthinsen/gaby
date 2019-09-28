@@ -153,6 +153,7 @@ impl CPU {
             0xEE => self.xor(Immediate()),
             0xF0 => self.load(A, Indirect::HighImmediate),
             0xF2 => self.load(A, Indirect::HighC),
+            0xF3 => self.disable_interrupts(),
             0xF9 => {
                 self.load(SP, HL);
                 self.cycle += 1;

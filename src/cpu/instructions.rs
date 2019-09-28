@@ -194,4 +194,10 @@ impl CPU {
     pub fn halt(&self) {
         unimplemented!();
     }
+
+    /// DI
+    pub fn disable_interrupts(&mut self) {
+        self.curr_instr = "DI".to_string();
+        self.ime = false;
+    }
 }
