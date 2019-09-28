@@ -163,7 +163,7 @@ impl CPU {
         }
 
         if self.print_instructions {
-            println!("{}", self.curr_instr);
+            println!("[opcode {:02X}] {}", opcode, self.curr_instr);
         }
 
         Ok(())
