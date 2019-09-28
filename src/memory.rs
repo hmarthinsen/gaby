@@ -35,6 +35,10 @@ impl Memory {
         title.trim().into()
     }
 
+    pub fn read_cartridge_type(&self) -> u8 {
+        self.read_byte(0x0147)
+    }
+
     pub fn read_byte(&self, address: u16) -> u8 {
         self.data[address as usize]
     }
