@@ -175,7 +175,7 @@ impl Memory {
             0x0000..=0x7FFF => return, // Can't write to ROM area.
             0xC000..=0xDDFF => self[address + 0x2000] = data, // Write to echo area.
             0xE000..=0xFDFF => self[address - 0x2000] = data, // Write to echo area.
-            0xFF00..=0xFFFF => self.write_io(address, data),      // TODO: I/O registers.
+            0xFF00..=0xFFFF => self.write_io(address, data), // TODO: I/O registers.
             _ => {}
         }
 
@@ -189,6 +189,10 @@ impl Memory {
     }
 
     fn write_io(&self, address: u16, data: u8) {
-        unimplemented!("I/O register write, address: {:04x}, data: {:04x}", address, data);
+        unimplemented!(
+            "I/O register write, address: {:04x}, data: {:04x}",
+            address,
+            data
+        );
     }
 }
