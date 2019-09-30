@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::Read;
 use std::ops::{Index, IndexMut};
 
-enum IORegister {
+pub enum IORegister {
     P1 = 0xFF00,
     SB = 0xFF01,
     SC = 0xFF02,

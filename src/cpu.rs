@@ -2,7 +2,7 @@ mod instructions;
 mod operands;
 mod registers;
 
-use crate::memory::Memory;
+use crate::memory::{IORegister, Memory};
 use instructions::*;
 use operands::{ByteRegister, Immediate, Indirect, WordRegister};
 use registers::{Flags, Registers};
@@ -64,11 +64,54 @@ impl CPU {
         self.mem.write_word(address, data);
     }
 
+    fn dispatch_interrupts(&mut self) {
+        if self.ime {
+            use IORegister::*;
+            let interrupt_handler =
+                if (self.mem[IF] & 0b0000_0001) & (self.mem[IE] & 0b0000_0001) != 0 {
+                    // V-blank interrupt
+                    self.mem[IF] &= 0b1111_1110;
+                    Some(0x40)
+                } else if (self.mem[IF] & 0b0000_0010) & (self.mem[IE] & 0b0000_0010) != 0 {
+                    // LCDC status interrupt
+                    self.mem[IF] &= 0b1111_1101;
+                    Some(0x48)
+                } else if (self.mem[IF] & 0b0000_0100) & (self.mem[IE] & 0b0000_0100) != 0 {
+                    // Timer overflow interrupt
+                    self.mem[IF] &= 0b1111_1011;
+                    Some(0x50)
+                } else if (self.mem[IF] & 0b0000_1000) & (self.mem[IE] & 0b0000_1000) != 0 {
+                    // Serial transfer completion interrupt
+                    self.mem[IF] &= 0b1111_0111;
+                    Some(0x58)
+                } else if (self.mem[IF] & 0b0001_0000) & (self.mem[IE] & 0b0001_0000) != 0 {
+                    // Keypad high-to-low interrupt
+                    self.mem[IF] &= 0b1110_1111;
+                    Some(0x60)
+                } else {
+                    None
+                };
+
+            if let Some(address) = interrupt_handler {
+                self.ime = false;
+
+                self.reg.sp -= 2;
+                self.mem.write_word(self.reg.sp, self.reg.pc);
+
+                self.reg.pc = address;
+
+                self.cycle += 5;
+            }
+        }
+    }
+
     /// Fetch, decode and execute one instruction.
     pub fn execute(&mut self) -> Result<(), String> {
         use ByteRegister::*;
         use Condition::*;
         use WordRegister::*;
+
+        self.dispatch_interrupts();
 
         // Fetch.
         if self.print_instructions {
