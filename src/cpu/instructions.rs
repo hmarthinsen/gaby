@@ -1,39 +1,8 @@
 use crate::cpu::{
-    operands::{Read, WordRegister, Write},
-    Flags, CPU,
+    operands::{Source, Target, WordRegister},
+    Flags, ReadImmediate, CPU,
 };
-
-pub trait Decrement<T> {
-    fn decrement(&mut self) -> T;
-}
-
-impl Decrement<u8> for u8 {
-    fn decrement(&mut self) -> u8 {
-        self.wrapping_sub(1)
-    }
-}
-
-impl Decrement<u16> for u16 {
-    fn decrement(&mut self) -> u16 {
-        self.wrapping_sub(1)
-    }
-}
-
-pub trait Increment<T> {
-    fn increment(&mut self) -> T;
-}
-
-impl Increment<u8> for u8 {
-    fn increment(&mut self) -> u8 {
-        self.wrapping_add(1)
-    }
-}
-
-impl Increment<u16> for u16 {
-    fn increment(&mut self) -> u16 {
-        self.wrapping_add(1)
-    }
-}
+use std::fmt::{Display, Formatter};
 
 pub enum Condition {
     Unconditional,
@@ -42,8 +11,18 @@ pub enum Condition {
 }
 
 impl Condition {
-    fn to_string(&self) -> String {
+    fn is_satisfied(&self, cpu: &CPU) -> bool {
         match self {
+            Condition::Unconditional => true,
+            Condition::Zero(flag) => cpu.reg.z_flag() == *flag,
+            Condition::Carry(flag) => cpu.reg.c_flag() == *flag,
+        }
+    }
+}
+
+impl Display for Condition {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let string = match self {
             Condition::Unconditional => "",
             Condition::Zero(flag) => {
                 if *flag {
@@ -59,16 +38,8 @@ impl Condition {
                     "NC"
                 }
             }
-        }
-        .into()
-    }
-
-    fn is_satisfied(&self, cpu: &CPU) -> bool {
-        match self {
-            Condition::Unconditional => true,
-            Condition::Zero(flag) => cpu.reg.z_flag() == *flag,
-            Condition::Carry(flag) => cpu.reg.c_flag() == *flag,
-        }
+        };
+        write!(f, "{}", string)
     }
 }
 
@@ -79,8 +50,8 @@ impl CPU {
     }
 
     /// JP
-    pub fn jump(&mut self, word: impl Read<u16>, cond: Condition) {
-        self.curr_instr = "JP".to_string() + &cond.to_string() + " " + &word.to_string(self);
+    pub fn jump(&mut self, word: impl Source<u16>, cond: Condition) {
+        self.curr_instr = "JP".to_string() + &cond.to_string() + " " + &word.to_string();
 
         let address = word.read(self);
 
@@ -94,7 +65,8 @@ impl CPU {
     pub fn jump_relative(&mut self, cond: Condition) {
         self.curr_instr = "JR".to_string() + &cond.to_string() + " ";
 
-        let offset = self.read_immediate_byte() as i8;
+        let immediate: u8 = self.immediate().0;
+        let offset = immediate as i8;
         self.curr_instr += &format!("{}", offset);
 
         if cond.is_satisfied(self) {
@@ -104,8 +76,8 @@ impl CPU {
     }
 
     /// XOR
-    pub fn xor(&mut self, byte: impl Read<u8>) {
-        self.curr_instr = "XOR ".to_string() + &byte.to_string(self);
+    pub fn xor(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "XOR ".to_string() + &byte.to_string();
 
         self.reg.a ^= byte.read(self);
 
@@ -118,19 +90,18 @@ impl CPU {
     }
 
     /// LD
-    pub fn load<T, U: Write<T>, V: Read<T>>(&mut self, target: U, source: V) {
-        self.curr_instr =
-            "LD ".to_string() + &target.to_string(self) + ", " + &source.to_string(self);
+    pub fn load<T, U: Target<T>, V: Source<T>>(&mut self, target: U, source: V) {
+        self.curr_instr = "LD ".to_string() + &target.to_string() + ", " + &source.to_string();
 
         let data = source.read(self);
         target.write(self, data);
     }
 
     /// DEC
-    pub fn decrement_byte<T: Read<u8> + Write<u8>>(&mut self, data: T) {
-        self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
+    pub fn decrement_byte<T: Source<u8> + Target<u8>>(&mut self, data: T) {
+        self.curr_instr = "DEC ".to_string() + &data.to_string();
 
-        let result = data.read(self).decrement();
+        let result = data.read(self).wrapping_sub(1);
         data.write(self, result);
 
         let mut flags = self.reg.flags();
@@ -141,22 +112,18 @@ impl CPU {
     }
 
     /// DEC
-    pub fn decrement_word<T: Read<u16> + Write<u16>>(&mut self, data: T) {
-        self.curr_instr = "DEC ".to_string() + &Write::to_string(&data, self);
+    pub fn decrement_word<T: Source<u16> + Target<u16>>(&mut self, data: T) {
+        self.curr_instr = "DEC ".to_string() + &data.to_string();
 
-        let result = data.read(self).decrement();
+        let result = data.read(self).wrapping_sub(1);
         data.write(self, result);
 
         self.cycle += 1;
     }
 
     /// LDD
-    pub fn load_and_decrement_hl<T: Decrement<T>>(
-        &mut self,
-        target: impl Write<T>,
-        source: impl Read<T>,
-    ) {
-        let instr = "LDD ".to_string() + &target.to_string(self) + ", " + &source.to_string(self);
+    pub fn load_and_decrement_hl<T>(&mut self, target: impl Target<T>, source: impl Source<T>) {
+        let instr = "LDD ".to_string() + &target.to_string() + ", " + &source.to_string();
 
         self.load(target, source);
         self.decrement_word(WordRegister::HL);
@@ -166,10 +133,10 @@ impl CPU {
     }
 
     /// INC
-    pub fn increment_byte<T: Read<u8> + Write<u8>>(&mut self, data: T) {
-        self.curr_instr = "INC ".to_string() + &Write::to_string(&data, self);
+    pub fn increment_byte<T: Source<u8> + Target<u8>>(&mut self, data: T) {
+        self.curr_instr = "INC ".to_string() + &data.to_string();
 
-        let result = data.read(self).increment();
+        let result = data.read(self).wrapping_add(1);
         data.write(self, result);
 
         let mut flags = self.reg.flags();
@@ -180,10 +147,10 @@ impl CPU {
     }
 
     /// INC
-    pub fn increment_word<T: Read<u16> + Write<u16>>(&mut self, data: T) {
-        self.curr_instr = "INC ".to_string() + &Write::to_string(&data, self);
+    pub fn increment_word<T: Source<u16> + Target<u16>>(&mut self, data: T) {
+        self.curr_instr = "INC ".to_string() + &data.to_string();
 
-        let result = data.read(self).increment();
+        let result = data.read(self).wrapping_add(1);
         data.write(self, result);
 
         self.cycle += 1;

@@ -4,8 +4,23 @@ mod registers;
 
 use crate::memory::{IORegister, Memory};
 use instructions::*;
-use operands::{ByteRegister, Immediate, Indirect, WordRegister};
+use operands::{
+    ByteRegister, Immediate, Indirect, IndirectHighImmediate, IndirectImmediate, WordRegister,
+};
 use registers::{Flags, Registers};
+use std::fmt::UpperHex;
+
+pub trait ReadImmediate<T: UpperHex> {
+    fn immediate(&mut self) -> Immediate<T>;
+}
+
+pub trait ReadMem<T> {
+    fn read(&mut self, address: u16) -> T;
+}
+
+pub trait WriteMem<T> {
+    fn write(&mut self, address: u16, data: T);
+}
 
 pub struct CPU {
     reg: Registers,
@@ -14,6 +29,54 @@ pub struct CPU {
     mem: Memory,
     curr_instr: String,
     pub print_instructions: bool,
+}
+
+impl ReadImmediate<u8> for CPU {
+    fn immediate(&mut self) -> Immediate<u8> {
+        self.cycle += 1;
+        let data = self.mem.read_byte(self.reg.pc);
+        self.reg.pc += 1;
+
+        Immediate(data)
+    }
+}
+
+impl ReadImmediate<u16> for CPU {
+    fn immediate(&mut self) -> Immediate<u16> {
+        self.cycle += 2;
+        let data = self.mem.read_word(self.reg.pc);
+        self.reg.pc += 2;
+
+        Immediate(data)
+    }
+}
+
+impl ReadMem<u8> for CPU {
+    fn read(&mut self, address: u16) -> u8 {
+        self.cycle += 1;
+        self.mem.read_byte(address)
+    }
+}
+
+impl ReadMem<u16> for CPU {
+    fn read(&mut self, address: u16) -> u16 {
+        self.cycle += 2;
+        self.mem.read_word(address)
+    }
+}
+
+impl WriteMem<u8> for CPU {
+    fn write(&mut self, address: u16, data: u8) {
+        self.cycle += 1;
+        self.mem.write_byte(address, data);
+    }
+}
+
+impl WriteMem<u16> for CPU {
+    fn write(&mut self, address: u16, data: u16) {
+        self.cycle += 2;
+        self.mem.write_word(address, data);
+    }
 }
 
 impl CPU {
@@ -28,40 +91,12 @@ impl CPU {
         }
     }
 
-    fn read_immediate_byte(&mut self) -> u8 {
-        self.cycle += 1;
-        let data = self.mem.read_byte(self.reg.pc);
-        self.reg.pc += 1;
-
-        data
+    fn indirect_high_immediate(&mut self) -> IndirectHighImmediate {
+        IndirectHighImmediate(self.immediate().0)
     }
 
-    fn read_immediate_word(&mut self) -> u16 {
-        self.cycle += 2;
-        let data = self.mem.read_word(self.reg.pc);
-        self.reg.pc += 2;
-
-        data
-    }
-
-    fn read_byte(&mut self, address: u16) -> u8 {
-        self.cycle += 1;
-        self.mem.read_byte(address)
-    }
-
-    fn write_byte(&mut self, address: u16, data: u8) {
-        self.cycle += 1;
-        self.mem.write_byte(address, data);
-    }
-
-    fn read_word(&mut self, address: u16) -> u16 {
-        self.cycle += 2;
-        self.mem.read_word(address)
-    }
-
-    fn write_word(&mut self, address: u16, data: u16) {
-        self.cycle += 2;
-        self.mem.write_word(address, data);
+    fn indirect_immediate(&mut self) -> IndirectImmediate {
+        IndirectImmediate(self.immediate().0)
     }
 
     fn dispatch_interrupts(&mut self) {
@@ -117,48 +152,81 @@ impl CPU {
         if self.print_instructions {
             print!("{:11}, {:04X}: ", self.cycle, self.reg.pc);
         }
-        let opcode = self.read_immediate_byte();
+        let opcode: u8 = self.immediate().0;
 
         // Decode and execute. Some instructions need cycle corrections.
         match opcode {
             0x00 => self.no_operation(),
-            0x01 => self.load(BC, Immediate()),
+            0x01 => {
+                let imm = self.immediate();
+                self.load(BC, imm);
+            }
             0x02 => self.load(Indirect::BC, A),
             0x03 => self.increment_word(BC),
             0x04 => self.increment_byte(B),
             0x05 => self.decrement_byte(B),
-            0x06 => self.load(B, Immediate()),
-            0x08 => self.load(Indirect::Immediate, SP),
+            0x06 => {
+                let imm = self.immediate();
+                self.load(B, imm);
+            }
+            0x08 => {
+                let ind = self.indirect_immediate();
+                self.load(ind, SP);
+            }
             0x0A => self.load(A, Indirect::BC),
             0x0B => self.decrement_word(BC),
             0x0C => self.increment_byte(C),
             0x0D => self.decrement_byte(C),
-            0x0E => self.load(C, Immediate()),
-            0x11 => self.load(DE, Immediate()),
+            0x0E => {
+                let imm = self.immediate();
+                self.load(C, imm);
+            }
+            0x11 => {
+                let imm = self.immediate();
+                self.load(DE, imm);
+            }
             0x12 => self.load(Indirect::DE, A),
             0x13 => self.increment_word(DE),
             0x14 => self.increment_byte(D),
             0x15 => self.decrement_byte(D),
-            0x16 => self.load(D, Immediate()),
+            0x16 => {
+                let imm = self.immediate();
+                self.load(D, imm);
+            }
             0x18 => self.jump_relative(Unconditional),
             0x1A => self.load(A, Indirect::DE),
             0x1B => self.decrement_word(DE),
             0x1C => self.increment_byte(E),
             0x1D => self.decrement_byte(E),
-            0x1E => self.load(E, Immediate()),
+            0x1E => {
+                let imm = self.immediate();
+                self.load(E, imm);
+            }
             0x20 => self.jump_relative(Zero(false)),
-            0x21 => self.load(HL, Immediate()),
+            0x21 => {
+                let imm = self.immediate();
+                self.load(HL, imm);
+            }
             0x23 => self.increment_word(HL),
             0x24 => self.increment_byte(H),
             0x25 => self.decrement_byte(H),
-            0x26 => self.load(H, Immediate()),
+            0x26 => {
+                let imm = self.immediate();
+                self.load(H, imm);
+            }
             0x28 => self.jump_relative(Zero(true)),
             0x2B => self.decrement_word(HL),
             0x2C => self.increment_byte(L),
             0x2D => self.decrement_byte(L),
-            0x2E => self.load(L, Immediate()),
+            0x2E => {
+                let imm = self.immediate();
+                self.load(L, imm);
+            }
             0x30 => self.jump_relative(Carry(false)),
-            0x31 => self.load(SP, Immediate()),
+            0x31 => {
+                let imm = self.immediate();
+                self.load(SP, imm);
+            }
             0x32 => self.load_and_decrement_hl(Indirect::HL, A),
             0x33 => self.increment_word(SP),
             0x34 => self.increment_byte(Indirect::HL),
@@ -169,7 +237,10 @@ impl CPU {
             0x3B => self.decrement_word(SP),
             0x3C => self.increment_byte(A),
             0x3D => self.decrement_byte(A),
-            0x3E => self.load(A, Immediate()),
+            0x3E => {
+                let imm = self.immediate();
+                self.load(A, imm);
+            }
             0x40..=0x7F => self.select_load_or_halt(opcode),
             0xA8 => self.xor(B),
             0xA9 => self.xor(C),
@@ -179,28 +250,58 @@ impl CPU {
             0xAD => self.xor(L),
             0xAE => self.xor(Indirect::HL),
             0xAF => self.xor(A),
-            0xC2 => self.jump(Immediate(), Zero(false)),
-            0xC3 => self.jump(Immediate(), Unconditional),
-            0xCA => self.jump(Immediate(), Zero(true)),
+            0xC2 => {
+                let imm = self.immediate();
+                self.jump(imm, Zero(false));
+            }
+            0xC3 => {
+                let imm = self.immediate();
+                self.jump(imm, Unconditional);
+            }
+            0xCA => {
+                let imm = self.immediate();
+                self.jump(imm, Zero(true));
+            }
             // //0xCB => unimplemented!(), // TODO: Go to CB table.
-            0xD2 => self.jump(Immediate(), Carry(false)),
-            0xDA => self.jump(Immediate(), Carry(true)),
-            0xE0 => self.load(Indirect::HighImmediate, A),
+            0xD2 => {
+                let imm = self.immediate();
+                self.jump(imm, Carry(false));
+            }
+            0xDA => {
+                let imm = self.immediate();
+                self.jump(imm, Carry(true));
+            }
+            0xE0 => {
+                let ind = self.indirect_high_immediate();
+                self.load(ind, A);
+            }
             0xE2 => self.load(Indirect::HighC, A),
             0xE9 => {
                 self.jump(HL, Unconditional);
                 self.cycle -= 1;
             }
-            0xEA => self.load(Indirect::Immediate, A),
-            0xEE => self.xor(Immediate()),
-            0xF0 => self.load(A, Indirect::HighImmediate),
+            0xEA => {
+                let ind = self.indirect_immediate();
+                self.load(ind, A);
+            }
+            0xEE => {
+                let imm = self.immediate();
+                self.xor(imm);
+            }
+            0xF0 => {
+                let ind = self.indirect_high_immediate();
+                self.load(A, ind);
+            }
             0xF2 => self.load(A, Indirect::HighC),
             0xF3 => self.disable_interrupts(),
             0xF9 => {
                 self.load(SP, HL);
                 self.cycle += 1;
             }
-            0xFA => self.load(A, Indirect::Immediate),
+            0xFA => {
+                let ind = self.indirect_immediate();
+                self.load(A, ind);
+            }
 
             _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
         }
