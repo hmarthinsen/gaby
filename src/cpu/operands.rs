@@ -62,20 +62,24 @@ impl Target<u8> for ByteRegister {
 }
 
 pub enum WordRegister {
+    AF,
     BC,
     DE,
     HL,
     SP,
+    PC,
 }
 
 impl Display for WordRegister {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         use WordRegister::*;
         let string = match self {
+            AF => "AF",
             BC => "BC",
             DE => "DE",
             HL => "HL",
             SP => "SP",
+            PC => "PC",
         };
         write!(f, "{}", string)
     }
@@ -97,6 +101,7 @@ pub enum Indirect {
     BC,
     DE,
     HL,
+    SP,
     HighC, // (0xFF00 + C)
 }
 
@@ -107,6 +112,7 @@ impl Indirect {
             BC => cpu.reg.word_register(&WordRegister::BC),
             DE => cpu.reg.word_register(&WordRegister::DE),
             HL => cpu.reg.word_register(&WordRegister::HL),
+            SP => cpu.reg.word_register(&WordRegister::SP),
             HighC => 0xFF00 + u16::from(cpu.reg.byte_register(&ByteRegister::C)),
         }
     }
@@ -119,6 +125,7 @@ impl Display for Indirect {
             BC => "(BC)",
             DE => "(DE)",
             HL => "(HL)",
+            SP => "(SP)",
             HighC => "(0xFF00 + C)",
         };
         write!(f, "{}", string)

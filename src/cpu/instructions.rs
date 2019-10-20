@@ -1,5 +1,5 @@
 use crate::cpu::{
-    operands::{Source, Target, WordRegister},
+    operands::{Indirect, Source, Target, WordRegister},
     Flags, ReadImmediate, CPU,
 };
 use std::fmt::{Display, Formatter};
@@ -75,6 +75,74 @@ impl CPU {
         }
     }
 
+    /// ADD
+    pub fn add_byte(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "ADD ".to_string() + &byte.to_string();
+
+        let (sum, overflow) = self.reg.a.overflowing_add(byte.read(self));
+        self.reg.a = sum;
+
+        let mut flags = if self.reg.a == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        // FIXME: H is wrong.
+        if overflow {
+            flags.insert(Flags::C);
+        }
+
+        self.reg.set_flags(flags);
+    }
+
+    /// ADD
+    pub fn add_word(&mut self, target: impl Source<u16> + Target<u16>, source: impl Source<u16>) {
+        self.curr_instr = "ADD ".to_string() + &target.to_string() + ", " + &source.to_string();
+
+        let (sum, overflow) = source.read(self).overflowing_add(target.read(self));
+        target.write(self, sum);
+
+        // FIXME: Flags are wrong.
+        let mut flags = if self.reg.a == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        if overflow {
+            flags.insert(Flags::C);
+        }
+
+        self.reg.set_flags(flags);
+    }
+
+    /// AND
+    pub fn and(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "AND ".to_string() + &byte.to_string();
+
+        self.reg.a &= byte.read(self);
+
+        let flags = if self.reg.a == 0 {
+            Flags::Z | Flags::N
+        } else {
+            Flags::N
+        };
+        self.reg.set_flags(flags);
+    }
+
+    /// OR
+    pub fn or(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "OR ".to_string() + &byte.to_string();
+
+        self.reg.a |= byte.read(self);
+
+        let flags = if self.reg.a == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        self.reg.set_flags(flags);
+    }
+
     /// XOR
     pub fn xor(&mut self, byte: impl Source<u8>) {
         self.curr_instr = "XOR ".to_string() + &byte.to_string();
@@ -112,7 +180,7 @@ impl CPU {
     }
 
     /// DEC
-    pub fn decrement_byte<T: Source<u8> + Target<u8>>(&mut self, data: T) {
+    pub fn decrement_byte(&mut self, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "DEC ".to_string() + &data.to_string();
 
         let result = data.read(self).wrapping_sub(1);
@@ -126,7 +194,7 @@ impl CPU {
     }
 
     /// DEC
-    pub fn decrement_word<T: Source<u16> + Target<u16>>(&mut self, data: T) {
+    pub fn decrement_word(&mut self, data: impl Source<u16> + Target<u16>) {
         self.curr_instr = "DEC ".to_string() + &data.to_string();
 
         let result = data.read(self).wrapping_sub(1);
@@ -147,7 +215,7 @@ impl CPU {
     }
 
     /// INC
-    pub fn increment_byte<T: Source<u8> + Target<u8>>(&mut self, data: T) {
+    pub fn increment_byte(&mut self, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "INC ".to_string() + &data.to_string();
 
         let result = data.read(self).wrapping_add(1);
@@ -161,13 +229,24 @@ impl CPU {
     }
 
     /// INC
-    pub fn increment_word<T: Source<u16> + Target<u16>>(&mut self, data: T) {
+    pub fn increment_word(&mut self, data: impl Source<u16> + Target<u16>) {
         self.curr_instr = "INC ".to_string() + &data.to_string();
 
         let result = data.read(self).wrapping_add(1);
         data.write(self, result);
 
         self.cycles_until_done += 1;
+    }
+
+    /// LDI
+    pub fn load_and_increment_hl<T>(&mut self, target: impl Target<T>, source: impl Source<T>) {
+        let instr = "LDI ".to_string() + &target.to_string() + ", " + &source.to_string();
+
+        self.load(target, source);
+        self.increment_word(WordRegister::HL);
+
+        self.cycles_until_done -= 1;
+        self.curr_instr = instr;
     }
 
     /// HALT
@@ -180,5 +259,116 @@ impl CPU {
     pub fn disable_interrupts(&mut self) {
         self.curr_instr = "DI".to_string();
         self.ime = false;
+    }
+
+    /// EI
+    pub fn enable_interrupts(&mut self) {
+        self.curr_instr = "EI".to_string();
+        self.ime = true;
+    }
+
+    /// PUSH
+    pub fn push(&mut self, source: impl Source<u16>) {
+        let instr = "PUSH ".to_string() + &source.to_string();
+
+        self.reg.sp = self.reg.sp.wrapping_sub(2);
+        self.load(Indirect::SP, source);
+
+        self.curr_instr = instr;
+    }
+
+    /// POP
+    pub fn pop(&mut self, target: impl Target<u16>) {
+        let instr = "POP ".to_string() + &target.to_string();
+
+        self.load(target, Indirect::SP);
+        self.reg.sp = self.reg.sp.wrapping_add(2);
+
+        self.curr_instr = instr;
+    }
+
+    /// CALL
+    pub fn call(&mut self, word: impl Source<u16>, cond: Condition) {
+        let instr = "CALL".to_string() + &cond.to_string() + " " + &word.to_string();
+
+        let address = word.read(self);
+
+        if cond.is_satisfied(self) {
+            self.push(WordRegister::PC);
+
+            self.cycles_until_done += 1;
+            self.reg.pc = address;
+        }
+
+        self.curr_instr = instr;
+    }
+
+    /// RST
+    pub fn restart(&mut self, address: u8) {
+        let instr = format!("RST {:#04X}", address);
+
+        self.push(WordRegister::PC);
+        self.cycles_until_done += 1;
+        self.reg.pc = u16::from(address);
+
+        self.curr_instr = instr;
+    }
+
+    /// RET
+    pub fn r#return(&mut self, cond: Condition) {
+        let instr = "RET".to_string() + &cond.to_string();
+
+        if cond.is_satisfied(self) {
+            self.pop(WordRegister::PC);
+            self.cycles_until_done += 1;
+        }
+
+        self.curr_instr = instr;
+    }
+
+    /// RETI
+    pub fn return_and_enable_interrupts(&mut self) {
+        let instr = "RETI".to_string();
+
+        self.r#return(Condition::Unconditional);
+        self.enable_interrupts();
+
+        self.curr_instr = instr;
+    }
+
+    /// CPLA
+    pub fn complement_a(&mut self) {
+        self.curr_instr = "CPLA".to_string();
+
+        self.reg.a = !self.reg.a;
+
+        let mut flags = self.reg.flags();
+        flags.insert(Flags::N);
+        flags.insert(Flags::H);
+        self.reg.set_flags(flags);
+    }
+
+    /// SWAP
+    pub fn swap(&mut self, data: impl Source<u8> + Target<u8>) {
+        let byte = data.read(self);
+        let low_nibble = byte & 0b0000_1111;
+        let high_nibble = byte & 0b1111_0000;
+
+        let swapped = (low_nibble << 4) & (high_nibble >> 4);
+        data.write(self, swapped);
+
+        let flags = if swapped == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        self.reg.set_flags(flags);
+    }
+
+    /// RES
+    pub fn reset_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
+        let byte = data.read(self);
+        let mask = !(1 << target_bit);
+        data.write(self, byte & mask);
     }
 }

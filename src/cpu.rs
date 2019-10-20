@@ -188,6 +188,7 @@ impl CPU {
                 let ind = self.indirect_immediate();
                 self.load(ind, SP);
             }
+            0x09 => self.add_word(HL, BC),
             0x0A => self.load(A, Indirect::BC),
             0x0B => self.decrement_word(BC),
             0x0C => self.increment_byte(C),
@@ -209,6 +210,7 @@ impl CPU {
                 self.load(D, imm);
             }
             0x18 => self.jump_relative(Unconditional),
+            0x19 => self.add_word(HL, DE),
             0x1A => self.load(A, Indirect::DE),
             0x1B => self.decrement_word(DE),
             0x1C => self.increment_byte(E),
@@ -222,6 +224,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.load(HL, imm);
             }
+            0x22 => self.load_and_increment_hl(Indirect::HL, A),
             0x23 => self.increment_word(HL),
             0x24 => self.increment_byte(H),
             0x25 => self.decrement_byte(H),
@@ -230,6 +233,8 @@ impl CPU {
                 self.load(H, imm);
             }
             0x28 => self.jump_relative(Zero(true)),
+            0x29 => self.add_word(HL, HL),
+            0x2A => self.load_and_increment_hl(A, Indirect::HL),
             0x2B => self.decrement_word(HL),
             0x2C => self.increment_byte(L),
             0x2D => self.decrement_byte(L),
@@ -237,6 +242,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.load(L, imm);
             }
+            0x2F => self.complement_a(),
             0x30 => self.jump_relative(Carry(false)),
             0x31 => {
                 let imm = self.immediate();
@@ -248,6 +254,7 @@ impl CPU {
             0x35 => self.decrement_byte(Indirect::HL),
             0x36 => self.load(B, Indirect::HL),
             0x38 => self.jump_relative(Carry(true)),
+            0x39 => self.add_word(HL, SP),
             0x3A => self.load_and_decrement_hl(A, Indirect::HL),
             0x3B => self.decrement_word(SP),
             0x3C => self.increment_byte(A),
@@ -257,6 +264,22 @@ impl CPU {
                 self.load(A, imm);
             }
             0x40..=0x7F => self.select_load_or_halt(opcode),
+            0x80 => self.add_byte(B),
+            0x81 => self.add_byte(C),
+            0x82 => self.add_byte(D),
+            0x83 => self.add_byte(E),
+            0x84 => self.add_byte(H),
+            0x85 => self.add_byte(L),
+            0x86 => self.add_byte(Indirect::HL),
+            0x87 => self.add_byte(A),
+            0xA0 => self.and(B),
+            0xA1 => self.and(C),
+            0xA2 => self.and(D),
+            0xA3 => self.and(E),
+            0xA4 => self.and(H),
+            0xA5 => self.and(L),
+            0xA6 => self.and(Indirect::HL),
+            0xA7 => self.and(A),
             0xA8 => self.xor(B),
             0xA9 => self.xor(C),
             0xAA => self.xor(D),
@@ -265,6 +288,14 @@ impl CPU {
             0xAD => self.xor(L),
             0xAE => self.xor(Indirect::HL),
             0xAF => self.xor(A),
+            0xB0 => self.or(B),
+            0xB1 => self.or(C),
+            0xB2 => self.or(D),
+            0xB3 => self.or(E),
+            0xB4 => self.or(H),
+            0xB5 => self.or(L),
+            0xB6 => self.or(Indirect::HL),
+            0xB7 => self.or(A),
             0xB8 => self.compare(B),
             0xB9 => self.compare(C),
             0xBA => self.compare(D),
@@ -273,6 +304,8 @@ impl CPU {
             0xBD => self.compare(L),
             0xBE => self.compare(Indirect::HL),
             0xBF => self.compare(A),
+            0xC0 => self.r#return(Zero(false)),
+            0xC1 => self.pop(BC),
             0xC2 => {
                 let imm = self.immediate();
                 self.jump(imm, Zero(false));
@@ -281,24 +314,63 @@ impl CPU {
                 let imm = self.immediate();
                 self.jump(imm, Unconditional);
             }
+            0xC4 => {
+                let imm = self.immediate();
+                self.call(imm, Zero(false));
+            }
+            0xC5 => self.push(BC),
+            0xC7 => self.restart(0x00),
+            0xC8 => self.r#return(Zero(true)),
+            0xC9 => self.r#return(Unconditional),
             0xCA => {
                 let imm = self.immediate();
                 self.jump(imm, Zero(true));
             }
-            // //0xCB => unimplemented!(), // TODO: Go to CB table.
+            0xCB => self.execute_cb()?, // Go to CB table.
+            0xCC => {
+                let imm = self.immediate();
+                self.call(imm, Zero(true));
+            }
+            0xCD => {
+                let imm = self.immediate();
+                self.call(imm, Unconditional);
+            }
+            0xCF => self.restart(0x08),
+            0xD0 => self.r#return(Carry(false)),
+            0xD1 => self.pop(DE),
             0xD2 => {
                 let imm = self.immediate();
                 self.jump(imm, Carry(false));
             }
+            0xD4 => {
+                let imm = self.immediate();
+                self.call(imm, Carry(false));
+            }
+            0xD5 => self.push(DE),
+            0xD7 => self.restart(0x10),
+            0xD8 => self.r#return(Carry(true)),
+            0xD9 => self.return_and_enable_interrupts(),
             0xDA => {
                 let imm = self.immediate();
                 self.jump(imm, Carry(true));
             }
+            0xDC => {
+                let imm = self.immediate();
+                self.call(imm, Carry(true));
+            }
+            0xDF => self.restart(0x18),
             0xE0 => {
                 let ind = self.indirect_high_immediate();
                 self.load(ind, A);
             }
+            0xE1 => self.pop(HL),
             0xE2 => self.load(Indirect::HighC, A),
+            0xE5 => self.push(HL),
+            0xE6 => {
+                let imm = self.immediate();
+                self.and(imm);
+            }
+            0xE7 => self.restart(0x20),
             0xE9 => {
                 self.jump(HL, Unconditional);
                 self.cycles_until_done -= 1;
@@ -311,12 +383,20 @@ impl CPU {
                 let imm = self.immediate();
                 self.xor(imm);
             }
+            0xEF => self.restart(0x28),
             0xF0 => {
                 let ind = self.indirect_high_immediate();
                 self.load(A, ind);
             }
+            0xF1 => self.pop(AF),
             0xF2 => self.load(A, Indirect::HighC),
             0xF3 => self.disable_interrupts(),
+            0xF5 => self.push(AF),
+            0xF6 => {
+                let imm = self.immediate();
+                self.or(imm);
+            }
+            0xF7 => self.restart(0x30),
             0xF9 => {
                 self.load(SP, HL);
                 self.cycles_until_done += 1;
@@ -325,17 +405,52 @@ impl CPU {
                 let ind = self.indirect_immediate();
                 self.load(A, ind);
             }
+            0xFB => self.enable_interrupts(),
             0xFE => {
                 let imm = self.immediate();
                 self.compare(imm);
             }
+            0xFF => self.restart(0x38),
 
             _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
         }
 
-        if self.print_instructions {
+        if self.print_instructions && opcode != 0xCB {
             println!(
                 "[opcode {:02X}, cycles: {}] {}",
+                opcode, self.cycles_until_done, self.curr_instr
+            );
+        }
+
+        Ok(())
+    }
+
+    fn execute_cb(&mut self) -> Result<(), String> {
+        use ByteRegister::*;
+
+        // Fetch.
+        if self.print_instructions {
+            print!("{:02X}: ", self.reg.pc);
+        }
+        let opcode: u8 = self.immediate().0;
+
+        // Decode and execute. Some instructions need cycle corrections.
+        match opcode {
+            0x30 => self.swap(B),
+            0x31 => self.swap(C),
+            0x32 => self.swap(D),
+            0x33 => self.swap(E),
+            0x34 => self.swap(H),
+            0x35 => self.swap(L),
+            0x36 => self.swap(Indirect::HL),
+            0x37 => self.swap(A),
+            0x80..=0xBF => self.select_reset_bit(opcode),
+            _ => return Err(format!["Unimplemented opcode CB {:02X}", opcode]),
+        }
+
+        if self.print_instructions {
+            println!(
+                "[opcode CB {:02X}, cycles: {}] {}",
                 opcode, self.cycles_until_done, self.curr_instr
             );
         }
@@ -377,6 +492,29 @@ impl CPU {
             (Some(target_reg), None) => self.load(target_reg, Indirect::HL),
             (None, Some(source_reg)) => self.load(Indirect::HL, source_reg),
             (None, None) => self.halt(),
+        }
+    }
+
+    fn select_reset_bit(&mut self, opcode: u8) {
+        let target_bits = opcode & 0b0000_0111;
+        use ByteRegister::*;
+        let target: Option<ByteRegister> = match target_bits {
+            0x0 => Some(B),
+            0x1 => Some(C),
+            0x2 => Some(D),
+            0x3 => Some(E),
+            0x4 => Some(H),
+            0x5 => Some(L),
+            0x6 => None, // Signifies Indirect::HL
+            0x7 => Some(A),
+            _ => panic!("This should never happen."),
+        };
+
+        let target_bit = (opcode & 0b0011_1000) >> 3;
+
+        match target {
+            Some(target_reg) => self.reset_bit(target_bit, target_reg),
+            None => self.reset_bit(target_bit, Indirect::HL),
         }
     }
 }

@@ -39,6 +39,16 @@ impl Registers {
         }
     }
 
+    pub fn set_af(&mut self, value: u16) {
+        let bytes = value.to_le_bytes();
+        self.f = bytes[0];
+        self.a = bytes[1];
+    }
+
+    pub fn af(&self) -> u16 {
+        u16::from_le_bytes([self.f, self.a])
+    }
+
     pub fn set_bc(&mut self, value: u16) {
         let bytes = value.to_le_bytes();
         self.c = bytes[0];
@@ -114,20 +124,24 @@ impl Registers {
     pub fn word_register(&self, reg: &WordRegister) -> u16 {
         use WordRegister::*;
         match reg {
+            AF => self.af(),
             BC => self.bc(),
             DE => self.de(),
             HL => self.hl(),
             SP => self.sp,
+            PC => self.pc,
         }
     }
 
     pub fn set_word_register(&mut self, reg: &WordRegister, value: u16) {
         use WordRegister::*;
         match reg {
+            AF => self.set_af(value),
             BC => self.set_bc(value),
             DE => self.set_de(value),
             HL => self.set_hl(value),
             SP => self.sp = value,
+            PC => self.pc = value,
         }
     }
 }
