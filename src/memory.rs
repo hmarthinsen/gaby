@@ -1,71 +1,60 @@
-use rand;
 use rand::Rng;
-use std::error::Error;
-use std::fs::File;
-use std::io::Read;
-use std::ops::{Index, IndexMut};
+use std::{
+    error::Error,
+    fs::File,
+    io::Read,
+    ops::{Index, IndexMut},
+};
 
-pub enum IORegister {
-    P1 = 0xFF00,
-    SB = 0xFF01,
-    SC = 0xFF02,
-    DIV = 0xFF04,
-    TIMA = 0xFF05,
-    TMA = 0xFF06,
-    TAC = 0xFF07,
-    IF = 0xFF0F,
-    NR10 = 0xFF10,
-    NR11 = 0xFF11,
-    NR12 = 0xFF12,
-    NR13 = 0xFF13,
-    NR14 = 0xFF14,
-    NR21 = 0xFF16,
-    NR22 = 0xFF17,
-    NR23 = 0xFF18,
-    NR24 = 0xFF19,
-    NR30 = 0xFF1A,
-    NR31 = 0xFF1B,
-    NR32 = 0xFF1C,
-    NR33 = 0xFF1D,
-    NR34 = 0xFF1E,
-    NR41 = 0xFF20,
-    NR42 = 0xFF21,
-    NR43 = 0xFF22,
-    NR44 = 0xFF23,
-    NR50 = 0xFF24,
-    NR51 = 0xFF25,
-    NR52 = 0xFF26,
-    LCDC = 0xFF40,
-    STAT = 0xFF41,
-    SCY = 0xFF42,
-    SCX = 0xFF43,
-    LY = 0xFF44,
-    LYC = 0xFF45,
-    DMA = 0xFF46,
-    BGP = 0xFF47,
-    OBP0 = 0xFF48,
-    OBP1 = 0xFF49,
-    WY = 0xFF4A,
-    WX = 0xFF4B,
-    IE = 0xFFFF,
+pub struct IORegister;
+
+impl IORegister {
+    pub const P1: u16 = 0xFF00;
+    pub const SB: u16 = 0xFF01;
+    pub const SC: u16 = 0xFF02;
+    pub const DIV: u16 = 0xFF04;
+    pub const TIMA: u16 = 0xFF05;
+    pub const TMA: u16 = 0xFF06;
+    pub const TAC: u16 = 0xFF07;
+    pub const IF: u16 = 0xFF0F;
+    pub const NR10: u16 = 0xFF10;
+    pub const NR11: u16 = 0xFF11;
+    pub const NR12: u16 = 0xFF12;
+    pub const NR13: u16 = 0xFF13;
+    pub const NR14: u16 = 0xFF14;
+    pub const NR21: u16 = 0xFF16;
+    pub const NR22: u16 = 0xFF17;
+    pub const NR23: u16 = 0xFF18;
+    pub const NR24: u16 = 0xFF19;
+    pub const NR30: u16 = 0xFF1A;
+    pub const NR31: u16 = 0xFF1B;
+    pub const NR32: u16 = 0xFF1C;
+    pub const NR33: u16 = 0xFF1D;
+    pub const NR34: u16 = 0xFF1E;
+    pub const NR41: u16 = 0xFF20;
+    pub const NR42: u16 = 0xFF21;
+    pub const NR43: u16 = 0xFF22;
+    pub const NR44: u16 = 0xFF23;
+    pub const NR50: u16 = 0xFF24;
+    pub const NR51: u16 = 0xFF25;
+    pub const NR52: u16 = 0xFF26;
+    pub const LCDC: u16 = 0xFF40;
+    pub const STAT: u16 = 0xFF41;
+    pub const SCY: u16 = 0xFF42;
+    pub const SCX: u16 = 0xFF43;
+    pub const LY: u16 = 0xFF44;
+    pub const LYC: u16 = 0xFF45;
+    pub const DMA: u16 = 0xFF46;
+    pub const BGP: u16 = 0xFF47;
+    pub const OBP0: u16 = 0xFF48;
+    pub const OBP1: u16 = 0xFF49;
+    pub const WY: u16 = 0xFF4A;
+    pub const WX: u16 = 0xFF4B;
+    pub const IE: u16 = 0xFFFF;
 }
 
 pub struct Memory {
-    data: [u8; 0x10000],
-}
-
-impl Index<IORegister> for Memory {
-    type Output = u8;
-
-    fn index(&self, index: IORegister) -> &Self::Output {
-        &self.data[index as usize]
-    }
-}
-
-impl IndexMut<IORegister> for Memory {
-    fn index_mut(&mut self, index: IORegister) -> &mut Self::Output {
-        &mut self.data[index as usize]
-    }
+    pub data: [u8; 0x10000],
 }
 
 impl Index<u16> for Memory {
@@ -90,39 +79,41 @@ impl Memory {
 
         let mut mem = Self { data };
 
-        use IORegister::*;
         // FIXME: What about the other I/O registers?
-        mem[TIMA] = 0x00;
-        mem[TMA] = 0x00;
-        mem[TAC] = 0x00;
-        mem[NR10] = 0x80;
-        mem[NR11] = 0xBF;
-        mem[NR12] = 0xF3;
-        mem[NR14] = 0xBF;
-        mem[NR21] = 0x3F;
-        mem[NR22] = 0x00;
-        mem[NR24] = 0xBF;
-        mem[NR30] = 0x7F;
-        mem[NR31] = 0xFF;
-        mem[NR32] = 0x9F;
-        mem[NR33] = 0xBF; // FIXME: Should this be NR34?
-        mem[NR41] = 0xFF;
-        mem[NR42] = 0x00;
-        mem[NR43] = 0x00;
-        mem[NR44] = 0xBF;
-        mem[NR50] = 0x77;
-        mem[NR51] = 0xF3;
-        mem[NR52] = 0xF1;
-        mem[LCDC] = 0x91;
-        mem[SCY] = 0x00;
-        mem[SCX] = 0x00;
-        mem[LYC] = 0x00;
-        mem[BGP] = 0xFC;
-        mem[OBP0] = 0xFF;
-        mem[OBP1] = 0xFF;
-        mem[WY] = 0x00;
-        mem[WX] = 0x00;
-        mem[IE] = 0x00;
+        mem[IORegister::P1] = 0x00;
+        mem[IORegister::SC] = 0x00;
+        mem[IORegister::TIMA] = 0x00;
+        mem[IORegister::TMA] = 0x00;
+        mem[IORegister::TAC] = 0x00;
+        mem[IORegister::NR10] = 0x80;
+        mem[IORegister::NR11] = 0xBF;
+        mem[IORegister::NR12] = 0xF3;
+        mem[IORegister::NR14] = 0xBF;
+        mem[IORegister::NR21] = 0x3F;
+        mem[IORegister::NR22] = 0x00;
+        mem[IORegister::NR24] = 0xBF;
+        mem[IORegister::NR30] = 0x7F;
+        mem[IORegister::NR31] = 0xFF;
+        mem[IORegister::NR32] = 0x9F;
+        mem[IORegister::NR33] = 0xBF; // FIXME: Should this be NR34?
+        mem[IORegister::NR41] = 0xFF;
+        mem[IORegister::NR42] = 0x00;
+        mem[IORegister::NR43] = 0x00;
+        mem[IORegister::NR44] = 0xBF;
+        mem[IORegister::NR50] = 0x77;
+        mem[IORegister::NR51] = 0xF3;
+        mem[IORegister::NR52] = 0xF1;
+        mem[IORegister::LCDC] = 0x91; // FIXME: Manual says 0x83.
+        mem[IORegister::SCY] = 0x00;
+        mem[IORegister::SCX] = 0x00;
+        mem[IORegister::LY] = 0x00; // FIXME: Correct?
+        mem[IORegister::LYC] = 0x00;
+        mem[IORegister::BGP] = 0xFC;
+        mem[IORegister::OBP0] = 0xFF;
+        mem[IORegister::OBP1] = 0xFF;
+        mem[IORegister::WY] = 0x00;
+        mem[IORegister::WX] = 0x00;
+        mem[IORegister::IE] = 0x00;
 
         mem
     }
@@ -188,11 +179,9 @@ impl Memory {
         self.write_byte(address + 1, bytes[1]);
     }
 
-    fn write_io(&self, address: u16, data: u8) {
-        unimplemented!(
-            "I/O register write, address: {:04x}, data: {:04x}",
-            address,
-            data
-        );
+    fn write_io(&mut self, address: u16, _data: u8) {
+        match address {
+            _ => {}
+        };
     }
 }

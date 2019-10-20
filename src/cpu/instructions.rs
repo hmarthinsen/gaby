@@ -56,7 +56,7 @@ impl CPU {
         let address = word.read(self);
 
         if cond.is_satisfied(self) {
-            self.cycle += 1;
+            self.cycles_until_done += 1;
             self.reg.pc = address;
         }
     }
@@ -70,7 +70,7 @@ impl CPU {
         self.curr_instr += &format!("{}", offset);
 
         if cond.is_satisfied(self) {
-            self.cycle += 1;
+            self.cycles_until_done += 1;
             self.reg.pc = (i32::from(self.reg.pc) + i32::from(offset)) as u16;
         }
     }
@@ -86,6 +86,20 @@ impl CPU {
         } else {
             Flags::empty()
         };
+        self.reg.set_flags(flags);
+    }
+
+    /// CP
+    pub fn compare(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "CP ".to_string() + &byte.to_string();
+
+        let data = byte.read(self);
+
+        let mut flags = self.reg.flags();
+        flags.set(Flags::Z, self.reg.a == data);
+        flags.insert(Flags::N);
+        flags.set(Flags::H, false); // FIXME: Wrong.
+        flags.set(Flags::C, self.reg.a < data);
         self.reg.set_flags(flags);
     }
 
@@ -118,7 +132,7 @@ impl CPU {
         let result = data.read(self).wrapping_sub(1);
         data.write(self, result);
 
-        self.cycle += 1;
+        self.cycles_until_done += 1;
     }
 
     /// LDD
@@ -128,7 +142,7 @@ impl CPU {
         self.load(target, source);
         self.decrement_word(WordRegister::HL);
 
-        self.cycle -= 1;
+        self.cycles_until_done -= 1;
         self.curr_instr = instr;
     }
 
@@ -153,7 +167,7 @@ impl CPU {
         let result = data.read(self).wrapping_add(1);
         data.write(self, result);
 
-        self.cycle += 1;
+        self.cycles_until_done += 1;
     }
 
     /// HALT

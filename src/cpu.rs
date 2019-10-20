@@ -8,7 +8,7 @@ use operands::{
     ByteRegister, Immediate, Indirect, IndirectHighImmediate, IndirectImmediate, WordRegister,
 };
 use registers::{Flags, Registers};
-use std::fmt::UpperHex;
+use std::{cell::RefCell, fmt::UpperHex, rc::Rc};
 
 pub trait ReadImmediate<T: UpperHex> {
     fn immediate(&mut self) -> Immediate<T>;
@@ -25,16 +25,16 @@ pub trait WriteMem<T> {
 pub struct CPU {
     reg: Registers,
     ime: bool, // Interrupt Master Enable flag.
-    cycle: u64,
-    mem: Memory,
+    cycles_until_done: u32,
+    mem: Rc<RefCell<Memory>>,
     curr_instr: String,
     pub print_instructions: bool,
 }
 
 impl ReadImmediate<u8> for CPU {
     fn immediate(&mut self) -> Immediate<u8> {
-        self.cycle += 1;
-        let data = self.mem.read_byte(self.reg.pc);
+        self.cycles_until_done += 1;
+        let data = self.mem.borrow().read_byte(self.reg.pc);
         self.reg.pc += 1;
 
         Immediate(data)
@@ -43,8 +43,8 @@ impl ReadImmediate<u8> for CPU {
 
 impl ReadImmediate<u16> for CPU {
     fn immediate(&mut self) -> Immediate<u16> {
-        self.cycle += 2;
-        let data = self.mem.read_word(self.reg.pc);
+        self.cycles_until_done += 2;
+        let data = self.mem.borrow().read_word(self.reg.pc);
         self.reg.pc += 2;
 
         Immediate(data)
@@ -53,38 +53,38 @@ impl ReadImmediate<u16> for CPU {
 
 impl ReadMem<u8> for CPU {
     fn read(&mut self, address: u16) -> u8 {
-        self.cycle += 1;
-        self.mem.read_byte(address)
+        self.cycles_until_done += 1;
+        self.mem.borrow().read_byte(address)
     }
 }
 
 impl ReadMem<u16> for CPU {
     fn read(&mut self, address: u16) -> u16 {
-        self.cycle += 2;
-        self.mem.read_word(address)
+        self.cycles_until_done += 2;
+        self.mem.borrow().read_word(address)
     }
 }
 
 impl WriteMem<u8> for CPU {
     fn write(&mut self, address: u16, data: u8) {
-        self.cycle += 1;
-        self.mem.write_byte(address, data);
+        self.cycles_until_done += 1;
+        self.mem.borrow_mut().write_byte(address, data);
     }
 }
 
 impl WriteMem<u16> for CPU {
     fn write(&mut self, address: u16, data: u16) {
-        self.cycle += 2;
-        self.mem.write_word(address, data);
+        self.cycles_until_done += 2;
+        self.mem.borrow_mut().write_word(address, data);
     }
 }
 
 impl CPU {
-    pub fn new(mem: Memory) -> Self {
+    pub fn new(mem: Rc<RefCell<Memory>>) -> Self {
         Self {
             reg: Registers::new(),
             ime: false,
-            cycle: 0,
+            cycles_until_done: 0,
             mem,
             curr_instr: Default::default(),
             print_instructions: false,
@@ -101,56 +101,71 @@ impl CPU {
 
     fn dispatch_interrupts(&mut self) {
         if self.ime {
-            use IORegister::*;
-            let interrupt_handler =
-                if (self.mem[IF] & 0b0000_0001) & (self.mem[IE] & 0b0000_0001) != 0 {
-                    // V-blank interrupt
-                    self.mem[IF] &= 0b1111_1110;
-                    Some(0x40)
-                } else if (self.mem[IF] & 0b0000_0010) & (self.mem[IE] & 0b0000_0010) != 0 {
-                    // LCDC status interrupt
-                    self.mem[IF] &= 0b1111_1101;
-                    Some(0x48)
-                } else if (self.mem[IF] & 0b0000_0100) & (self.mem[IE] & 0b0000_0100) != 0 {
-                    // Timer overflow interrupt
-                    self.mem[IF] &= 0b1111_1011;
-                    Some(0x50)
-                } else if (self.mem[IF] & 0b0000_1000) & (self.mem[IE] & 0b0000_1000) != 0 {
-                    // Serial transfer completion interrupt
-                    self.mem[IF] &= 0b1111_0111;
-                    Some(0x58)
-                } else if (self.mem[IF] & 0b0001_0000) & (self.mem[IE] & 0b0001_0000) != 0 {
-                    // Keypad high-to-low interrupt
-                    self.mem[IF] &= 0b1110_1111;
-                    Some(0x60)
-                } else {
-                    None
-                };
+            let mut mem = self.mem.borrow_mut();
+            let interrupt_handler = if (mem[IORegister::IF] & 0b0000_0001)
+                & (mem[IORegister::IE] & 0b0000_0001)
+                != 0
+            {
+                // V-blank interrupt
+                mem[IORegister::IF] &= 0b1111_1110;
+                Some(0x40)
+            } else if (mem[IORegister::IF] & 0b0000_0010) & (mem[IORegister::IE] & 0b0000_0010) != 0
+            {
+                // LCDC status interrupt
+                mem[IORegister::IF] &= 0b1111_1101;
+                Some(0x48)
+            } else if (mem[IORegister::IF] & 0b0000_0100) & (mem[IORegister::IE] & 0b0000_0100) != 0
+            {
+                // Timer overflow interrupt
+                mem[IORegister::IF] &= 0b1111_1011;
+                Some(0x50)
+            } else if (mem[IORegister::IF] & 0b0000_1000) & (mem[IORegister::IE] & 0b0000_1000) != 0
+            {
+                // Serial transfer completion interrupt
+                mem[IORegister::IF] &= 0b1111_0111;
+                Some(0x58)
+            } else if (mem[IORegister::IF] & 0b0001_0000) & (mem[IORegister::IE] & 0b0001_0000) != 0
+            {
+                // Keypad high-to-low interrupt
+                mem[IORegister::IF] &= 0b1110_1111;
+                Some(0x60)
+            } else {
+                None
+            };
 
             if let Some(address) = interrupt_handler {
                 self.ime = false;
 
                 self.reg.sp -= 2;
-                self.mem.write_word(self.reg.sp, self.reg.pc);
+                mem.write_word(self.reg.sp, self.reg.pc);
 
                 self.reg.pc = address;
 
-                self.cycle += 5;
+                self.cycles_until_done += 5;
             }
         }
     }
 
+    pub fn tick(&mut self) -> Result<(), String> {
+        self.dispatch_interrupts();
+
+        if self.cycles_until_done == 0 {
+            self.execute()?;
+        }
+
+        self.cycles_until_done -= 1;
+        Ok(())
+    }
+
     /// Fetch, decode and execute one instruction.
-    pub fn execute(&mut self) -> Result<(), String> {
+    fn execute(&mut self) -> Result<(), String> {
         use ByteRegister::*;
         use Condition::*;
         use WordRegister::*;
 
-        self.dispatch_interrupts();
-
         // Fetch.
         if self.print_instructions {
-            print!("{:11}, {:04X}: ", self.cycle, self.reg.pc);
+            print!("{:04X}: ", self.reg.pc);
         }
         let opcode: u8 = self.immediate().0;
 
@@ -250,6 +265,14 @@ impl CPU {
             0xAD => self.xor(L),
             0xAE => self.xor(Indirect::HL),
             0xAF => self.xor(A),
+            0xB8 => self.compare(B),
+            0xB9 => self.compare(C),
+            0xBA => self.compare(D),
+            0xBB => self.compare(E),
+            0xBC => self.compare(H),
+            0xBD => self.compare(L),
+            0xBE => self.compare(Indirect::HL),
+            0xBF => self.compare(A),
             0xC2 => {
                 let imm = self.immediate();
                 self.jump(imm, Zero(false));
@@ -278,7 +301,7 @@ impl CPU {
             0xE2 => self.load(Indirect::HighC, A),
             0xE9 => {
                 self.jump(HL, Unconditional);
-                self.cycle -= 1;
+                self.cycles_until_done -= 1;
             }
             0xEA => {
                 let ind = self.indirect_immediate();
@@ -296,18 +319,25 @@ impl CPU {
             0xF3 => self.disable_interrupts(),
             0xF9 => {
                 self.load(SP, HL);
-                self.cycle += 1;
+                self.cycles_until_done += 1;
             }
             0xFA => {
                 let ind = self.indirect_immediate();
                 self.load(A, ind);
+            }
+            0xFE => {
+                let imm = self.immediate();
+                self.compare(imm);
             }
 
             _ => return Err(format!["Unimplemented opcode {:#04X}", opcode]),
         }
 
         if self.print_instructions {
-            println!("[opcode {:02X}] {}", opcode, self.curr_instr);
+            println!(
+                "[opcode {:02X}, cycles: {}] {}",
+                opcode, self.cycles_until_done, self.curr_instr
+            );
         }
 
         Ok(())
