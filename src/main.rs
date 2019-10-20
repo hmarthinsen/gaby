@@ -31,8 +31,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    let window_width = video::SCREEN_WIDTH as u32 * 8;
-    let window_height = video::SCREEN_HEIGHT as u32 * 8;
+    let window_width = u32::from(video::SCREEN_WIDTH) * 8;
+    let window_height = u32::from(video::SCREEN_HEIGHT) * 8;
 
     let window = video_subsystem
         .window(&title, window_width, window_height)
@@ -48,8 +48,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_streaming(
         PixelFormatEnum::RGB24,
-        video::SCREEN_WIDTH as u32,
-        video::SCREEN_HEIGHT as u32,
+        u32::from(video::SCREEN_WIDTH),
+        u32::from(video::SCREEN_HEIGHT),
     )?;
 
     let mut event_pump = sdl_context.event_pump()?;

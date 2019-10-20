@@ -16,8 +16,8 @@ const TICKS_PER_LINE: u32 = TICKS_HBLANK + TICKS_OAM + TICKS_TRANSFER;
 // These constants are for both x-/y-direction.
 const TILES_PER_BACKGROUND: u16 = 32;
 const PIXELS_PER_TILE: u8 = 8;
-const PIXELS_PER_BACKGROUND: usize = PIXELS_PER_TILE as usize * TILES_PER_BACKGROUND as usize;
-const PIXELS_PER_BACKGROUND_SQUARED: usize = PIXELS_PER_BACKGROUND * PIXELS_PER_BACKGROUND;
+// const PIXELS_PER_BACKGROUND: usize = PIXELS_PER_TILE as usize * TILES_PER_BACKGROUND as usize;
+// const PIXELS_PER_BACKGROUND_SQUARED: usize = PIXELS_PER_BACKGROUND * PIXELS_PER_BACKGROUND;
 
 const BYTES_PER_TILE: u16 = 16;
 const BYTES_PER_PIXEL: usize = 3;
@@ -164,8 +164,8 @@ impl Video {
         for x in 0..SCREEN_WIDTH {
             let x = x.wrapping_add(scx);
 
-            let tile_x = (x / PIXELS_PER_TILE) as u16;
-            let tile_y = (y / PIXELS_PER_TILE) as u16;
+            let tile_x = u16::from(x / PIXELS_PER_TILE);
+            let tile_y = u16::from(y / PIXELS_PER_TILE);
             let tile_offset = tile_y * TILES_PER_BACKGROUND + tile_x;
 
             // Coordinate inside current tile.
@@ -174,16 +174,16 @@ impl Video {
 
             let tile_index = mem[bg_tile_map_origin + tile_offset];
             let tile_data = if signed_tile_indices {
-                let offset = (tile_index as i8) as i32 * BYTES_PER_TILE as i32;
-                (tile_data_origin as i32 + offset) as u16
+                let offset = i32::from(tile_index as i8) * i32::from(BYTES_PER_TILE);
+                (i32::from(tile_data_origin) + offset) as u16
             } else {
-                tile_data_origin + (tile_index as u16) * BYTES_PER_TILE
+                tile_data_origin + u16::from(tile_index) * BYTES_PER_TILE
             };
 
             // Get bytes containing pixel data.
             let pixel_data = (
-                mem[tile_data + in_tile_y as u16 * 2],
-                mem[tile_data + in_tile_y as u16 * 2 + 1],
+                mem[tile_data + u16::from(in_tile_y) * 2],
+                mem[tile_data + u16::from(in_tile_y) * 2 + 1],
             );
 
             let mask = 1 << in_tile_x;
@@ -195,14 +195,12 @@ impl Video {
                     // 1
                     (mem[IORegister::BGP] & 0b0000_1100) >> 2
                 }
+            } else if (pixel_data.0 & mask) == 0 {
+                // 2
+                (mem[IORegister::BGP] & 0b0011_0000) >> 4
             } else {
-                if (pixel_data.0 & mask) == 0 {
-                    // 2
-                    (mem[IORegister::BGP] & 0b0011_0000) >> 4
-                } else {
-                    // 3
-                    (mem[IORegister::BGP] & 0b1100_0000) >> 6
-                }
+                // 3
+                (mem[IORegister::BGP] & 0b1100_0000) >> 6
             };
 
             let pixel_value = self.shade_to_rgb(shade);
