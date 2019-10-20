@@ -12,7 +12,7 @@ impl IORegister {
     pub const P1: u16 = 0xFF00;
     // pub const SB: u16 = 0xFF01;
     pub const SC: u16 = 0xFF02;
-    // pub const DIV: u16 = 0xFF04;
+    pub const DIV: u16 = 0xFF04;
     pub const TIMA: u16 = 0xFF05;
     pub const TMA: u16 = 0xFF06;
     pub const TAC: u16 = 0xFF07;
@@ -44,7 +44,7 @@ impl IORegister {
     pub const SCX: u16 = 0xFF43;
     pub const LY: u16 = 0xFF44;
     pub const LYC: u16 = 0xFF45;
-    // pub const DMA: u16 = 0xFF46;
+    pub const DMA: u16 = 0xFF46;
     pub const BGP: u16 = 0xFF47;
     pub const OBP0: u16 = 0xFF48;
     pub const OBP1: u16 = 0xFF49;
@@ -72,6 +72,9 @@ impl IndexMut<u16> for Memory {
 }
 
 impl Memory {
+    const OAM: u16 = 0xFE00;
+    const OAM_SIZE: u16 = 160;
+
     /// Initialize memory with random data.
     pub fn new() -> Self {
         let mut data = [0u8; 0x10000];
@@ -166,7 +169,10 @@ impl Memory {
             0x0000..=0x7FFF => return, // Can't write to ROM area.
             0xC000..=0xDDFF => self[address + 0x2000] = data, // Write to echo area.
             0xE000..=0xFDFF => self[address - 0x2000] = data, // Write to echo area.
-            0xFF00..=0xFFFF => self.write_io(address, data), // TODO: I/O registers.
+            0xFF00..=0xFFFF => {
+                self.write_io(address, data);
+                return;
+            }
             _ => {}
         }
 
@@ -179,9 +185,22 @@ impl Memory {
         self.write_byte(address + 1, bytes[1]);
     }
 
-    fn write_io(&mut self, address: u16, _data: u8) {
+    fn write_io(&mut self, address: u16, data: u8) {
         match address {
-            _ => {}
+            IORegister::DIV => unimplemented!("DIV"),
+            IORegister::TIMA => unimplemented!("TIMA"),
+            IORegister::TAC => unimplemented!("TAC"),
+            IORegister::DMA => self.dma_transfer(data),
+            _ => self[address] = data,
         };
+    }
+
+    // Transfer 160 bytes to OAM memory.
+    fn dma_transfer(&mut self, source_address: u8) {
+        let address = u16::from(source_address) << 8;
+
+        for offset in 0..Memory::OAM_SIZE {
+            self[Memory::OAM + offset] = self[address + offset];
+        }
     }
 }
