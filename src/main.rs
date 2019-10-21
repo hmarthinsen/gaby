@@ -1,5 +1,6 @@
 mod cpu;
 mod memory;
+mod timer;
 mod video;
 
 use cpu::CPU;
@@ -10,6 +11,7 @@ use sdl2::{
     pixels::{Color, PixelFormatEnum},
 };
 use std::{cell::RefCell, error::Error, rc::Rc};
+use timer::Timer;
 use video::Video;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -27,6 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     cpu.print_instructions = false;
 
     let mut video = Video::new(rc_mem.clone());
+    let mut timer = Timer::new(rc_mem.clone());
 
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
@@ -75,6 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         canvas.present();
 
         for _ in 0..17556 {
+            timer.tick()?;
             video.tick()?;
             cpu.tick()?;
         }

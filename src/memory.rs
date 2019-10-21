@@ -187,9 +187,7 @@ impl Memory {
 
     fn write_io(&mut self, address: u16, data: u8) {
         match address {
-            IORegister::DIV => unimplemented!("DIV"),
-            IORegister::TIMA => unimplemented!("TIMA"),
-            IORegister::TAC => unimplemented!("TAC"),
+            IORegister::DIV => self[IORegister::DIV] = 0,
             IORegister::DMA => self.dma_transfer(data),
             _ => self[address] = data,
         };
