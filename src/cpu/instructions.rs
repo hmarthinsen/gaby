@@ -103,15 +103,10 @@ impl CPU {
         target.write(self, sum);
 
         // FIXME: Flags are wrong.
-        let mut flags = if self.reg.a == 0 {
-            Flags::Z
-        } else {
-            Flags::empty()
-        };
-        if overflow {
-            flags.insert(Flags::C);
-        }
-
+        let mut flags = self.reg.flags();
+        flags.remove(Flags::N);
+        flags.set(Flags::H, false); // FIXME: Wrong.
+        flags.set(Flags::C, overflow);
         self.reg.set_flags(flags);
     }
 
@@ -350,6 +345,8 @@ impl CPU {
 
     /// SWAP
     pub fn swap(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "SWAP ".to_string() + &data.to_string();
+
         let byte = data.read(self);
         let low_nibble = byte & 0b0000_1111;
         let high_nibble = byte & 0b1111_0000;
@@ -367,6 +364,8 @@ impl CPU {
 
     /// RES
     pub fn reset_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "RES ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
+
         let byte = data.read(self);
         let mask = !(1 << target_bit);
         data.write(self, byte & mask);

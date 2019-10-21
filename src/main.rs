@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         canvas.present();
 
-        for _ in 0..100 {
+        for _ in 0..17556 {
             video.tick()?;
             cpu.tick()?;
         }

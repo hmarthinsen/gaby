@@ -142,72 +142,76 @@ impl Video {
     fn render_line(&mut self) {
         let mem = self.mem.borrow();
 
-        // Draw current line of background.
-        let lcdc = mem[IORegister::LCDC];
-        let (tile_data_origin, signed_tile_indices) = if (lcdc & 0b0001_0000) != 0 {
-            (0x8000, false)
-        } else {
-            (0x9000, true)
-        };
+        let y = mem[IORegister::LY];
 
-        let bg_tile_map_origin = if (lcdc & 0b0000_1000) != 0 {
-            0x9C00
-        } else {
-            0x9800
-        };
-
-        let scx = mem[IORegister::SCX];
-        let scy = mem[IORegister::SCY];
-
-        let y = mem[IORegister::LY].wrapping_add(scy);
-
-        for x in 0..SCREEN_WIDTH {
-            let x = x.wrapping_add(scx);
-
-            let tile_x = u16::from(x / PIXELS_PER_TILE);
-            let tile_y = u16::from(y / PIXELS_PER_TILE);
-            let tile_offset = tile_y * TILES_PER_BACKGROUND + tile_x;
-
-            // Coordinate inside current tile.
-            let in_tile_x = x % PIXELS_PER_TILE;
-            let in_tile_y = y % PIXELS_PER_TILE;
-
-            let tile_index = mem[bg_tile_map_origin + tile_offset];
-            let tile_data = if signed_tile_indices {
-                let offset = i32::from(tile_index as i8) * i32::from(BYTES_PER_TILE);
-                (i32::from(tile_data_origin) + offset) as u16
+        if y < SCREEN_HEIGHT {
+            // Draw current line of background.
+            let lcdc = mem[IORegister::LCDC];
+            let (tile_data_origin, signed_tile_indices) = if (lcdc & 0b0001_0000) != 0 {
+                (0x8000, false)
             } else {
-                tile_data_origin + u16::from(tile_index) * BYTES_PER_TILE
+                (0x9000, true)
             };
 
-            // Get bytes containing pixel data.
-            let pixel_data = (
-                mem[tile_data + u16::from(in_tile_y) * 2],
-                mem[tile_data + u16::from(in_tile_y) * 2 + 1],
-            );
+            let bg_tile_map_origin = if (lcdc & 0b0000_1000) != 0 {
+                0x9C00
+            } else {
+                0x9800
+            };
 
-            let mask = 1 << in_tile_x;
-            let shade = if (pixel_data.1 & mask) == 0 {
-                if (pixel_data.0 & mask) == 0 {
-                    // 0
-                    mem[IORegister::BGP] & 0b0000_0011
+            let scx = mem[IORegister::SCX];
+            let scy = mem[IORegister::SCY];
+
+            let scrolled_y = y.wrapping_add(scy);
+
+            for x in 0..SCREEN_WIDTH {
+                let scrolled_x = x.wrapping_add(scx);
+
+                let tile_x = u16::from(scrolled_x / PIXELS_PER_TILE);
+                let tile_y = u16::from(scrolled_y / PIXELS_PER_TILE);
+                let tile_offset = tile_y * TILES_PER_BACKGROUND + tile_x;
+
+                // Coordinate inside current tile.
+                let in_tile_x = scrolled_x % PIXELS_PER_TILE;
+                let in_tile_y = scrolled_y % PIXELS_PER_TILE;
+
+                let tile_index = mem[bg_tile_map_origin + tile_offset];
+                let tile_data = if signed_tile_indices {
+                    let offset = i32::from(tile_index as i8) * i32::from(BYTES_PER_TILE);
+                    (i32::from(tile_data_origin) + offset) as u16
                 } else {
-                    // 1
-                    (mem[IORegister::BGP] & 0b0000_1100) >> 2
-                }
-            } else if (pixel_data.0 & mask) == 0 {
-                // 2
-                (mem[IORegister::BGP] & 0b0011_0000) >> 4
-            } else {
-                // 3
-                (mem[IORegister::BGP] & 0b1100_0000) >> 6
-            };
+                    tile_data_origin + u16::from(tile_index) * BYTES_PER_TILE
+                };
 
-            let pixel_value = self.shade_to_rgb(shade);
-            let index = y as usize * BYTES_PER_LINE + x as usize * BYTES_PER_PIXEL;
-            self.pixel_data[index] = pixel_value;
-            self.pixel_data[index + 1] = pixel_value;
-            self.pixel_data[index + 2] = pixel_value;
+                // Get bytes containing pixel data.
+                let pixel_data = (
+                    mem[tile_data + u16::from(in_tile_y) * 2],
+                    mem[tile_data + u16::from(in_tile_y) * 2 + 1],
+                );
+
+                let mask = 0x80 >> in_tile_x;
+                let shade = if (pixel_data.1 & mask) == 0 {
+                    if (pixel_data.0 & mask) == 0 {
+                        // 0
+                        mem[IORegister::BGP] & 0b0000_0011
+                    } else {
+                        // 1
+                        (mem[IORegister::BGP] & 0b0000_1100) >> 2
+                    }
+                } else if (pixel_data.0 & mask) == 0 {
+                    // 2
+                    (mem[IORegister::BGP] & 0b0011_0000) >> 4
+                } else {
+                    // 3
+                    (mem[IORegister::BGP] & 0b1100_0000) >> 6
+                };
+
+                let pixel_value = self.shade_to_rgb(shade);
+                let index = y as usize * BYTES_PER_LINE + x as usize * BYTES_PER_PIXEL;
+                self.pixel_data[index] = pixel_value;
+                self.pixel_data[index + 1] = pixel_value;
+                self.pixel_data[index + 2] = pixel_value;
+            }
         }
     }
 
@@ -218,10 +222,10 @@ impl Video {
     /// Convert 2-bit shade to 8-bit for use in RGB.
     fn shade_to_rgb(&self, shade: u8) -> u8 {
         match shade {
-            0 => 0,
-            1 => 85,
-            2 => 170,
-            3 => 255,
+            0 => 255,
+            1 => 170,
+            2 => 85,
+            3 => 0,
             _ => panic!("Only values between 0 and 3 are valid shades."),
         }
     }

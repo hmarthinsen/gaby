@@ -252,7 +252,10 @@ impl CPU {
             0x33 => self.increment_word(SP),
             0x34 => self.increment_byte(Indirect::HL),
             0x35 => self.decrement_byte(Indirect::HL),
-            0x36 => self.load(B, Indirect::HL),
+            0x36 => {
+                let imm: Immediate<u8> = self.immediate();
+                self.load(Indirect::HL, imm);
+            }
             0x38 => self.jump_relative(Carry(true)),
             0x39 => self.add_word(HL, SP),
             0x3A => self.load_and_decrement_hl(A, Indirect::HL),
@@ -429,9 +432,6 @@ impl CPU {
         use ByteRegister::*;
 
         // Fetch.
-        if self.print_instructions {
-            print!("{:02X}: ", self.reg.pc);
-        }
         let opcode: u8 = self.immediate().0;
 
         // Decode and execute. Some instructions need cycle corrections.
