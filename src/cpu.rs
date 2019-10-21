@@ -458,6 +458,7 @@ impl CPU {
             0x37 => self.swap(A),
             0x40..=0x7F => self.select_test_bit(opcode),
             0x80..=0xBF => self.select_reset_bit(opcode),
+            0xC0..=0xFF => self.select_set_bit(opcode),
             _ => return Err(format!["Unimplemented opcode CB {:02X}", opcode]),
         }
 
@@ -528,6 +529,29 @@ impl CPU {
         match target {
             Some(target_reg) => self.reset_bit(target_bit, target_reg),
             None => self.reset_bit(target_bit, Indirect::HL),
+        }
+    }
+
+    fn select_set_bit(&mut self, opcode: u8) {
+        let target_bits = opcode & 0b0000_0111;
+        use ByteRegister::*;
+        let target: Option<ByteRegister> = match target_bits {
+            0x0 => Some(B),
+            0x1 => Some(C),
+            0x2 => Some(D),
+            0x3 => Some(E),
+            0x4 => Some(H),
+            0x5 => Some(L),
+            0x6 => None, // Signifies Indirect::HL
+            0x7 => Some(A),
+            _ => panic!("This should never happen."),
+        };
+
+        let target_bit = (opcode & 0b0011_1000) >> 3;
+
+        match target {
+            Some(target_reg) => self.set_bit(target_bit, target_reg),
+            None => self.set_bit(target_bit, Indirect::HL),
         }
     }
 

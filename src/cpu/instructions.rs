@@ -386,6 +386,15 @@ impl CPU {
         data.write(self, byte & mask);
     }
 
+    /// SET
+    pub fn set_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "SET ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
+
+        let byte = data.read(self);
+        let mask = 1 << target_bit;
+        data.write(self, byte | mask);
+    }
+
     /// SLA
     pub fn shift_left(&mut self, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "SLA ".to_string() + &data.to_string();
