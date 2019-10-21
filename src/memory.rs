@@ -157,7 +157,10 @@ impl Memory {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        self[address]
+        match address {
+            IORegister::P1 => 0xFF, // No buttons pressed.
+            _ => self[address],
+        }
     }
 
     pub fn read_word(&self, address: u16) -> u16 {
