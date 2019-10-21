@@ -362,6 +362,21 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
+    /// BIT
+    pub fn test_bit(&mut self, target_bit: u8, data: impl Source<u8>) {
+        self.curr_instr = "BIT ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
+
+        let byte = data.read(self);
+
+        let mask = 1 << target_bit;
+
+        let mut flags = self.reg.flags();
+        flags.set(Flags::Z, (byte & mask) == 0);
+        flags.remove(Flags::N);
+        flags.insert(Flags::H);
+        self.reg.set_flags(flags);
+    }
+
     /// RES
     pub fn reset_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "RES ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
