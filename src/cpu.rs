@@ -436,6 +436,14 @@ impl CPU {
 
         // Decode and execute. Some instructions need cycle corrections.
         match opcode {
+            0x20 => self.shift_left(B),
+            0x21 => self.shift_left(C),
+            0x22 => self.shift_left(D),
+            0x23 => self.shift_left(E),
+            0x24 => self.shift_left(H),
+            0x25 => self.shift_left(L),
+            0x26 => self.shift_left(Indirect::HL),
+            0x27 => self.shift_left(A),
             0x30 => self.swap(B),
             0x31 => self.swap(C),
             0x32 => self.swap(D),

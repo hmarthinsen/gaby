@@ -370,4 +370,20 @@ impl CPU {
         let mask = !(1 << target_bit);
         data.write(self, byte & mask);
     }
+
+    /// SLA
+    pub fn shift_left(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "SLA ".to_string() + &data.to_string();
+
+        let (byte, overflow) = data.read(self).overflowing_shl(1);
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        flags.set(Flags::C, overflow);
+        self.reg.set_flags(flags);
+    }
 }
