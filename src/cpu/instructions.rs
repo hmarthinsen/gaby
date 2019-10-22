@@ -366,6 +366,60 @@ impl CPU {
         self.curr_instr = instr;
     }
 
+    /// RL
+    pub fn rotate_left_through_carry(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "RL ".to_string() + &data.to_string();
+
+        let (mut byte, overflow) = data.read(self).overflowing_shl(1);
+        if self.reg.c_flag() {
+            byte |= 0b0000_0001;
+        }
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
+        flags.set(Flags::C, overflow);
+        self.reg.set_flags(flags);
+    }
+
+    /// RR
+    pub fn rotate_right_through_carry(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "RR ".to_string() + &data.to_string();
+
+        let (mut byte, overflow) = data.read(self).overflowing_shr(1);
+        if self.reg.c_flag() {
+            byte |= 0b1000_0000;
+        }
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
+        flags.set(Flags::C, overflow);
+        self.reg.set_flags(flags);
+    }
+
+    /// RLC
+    pub fn rotate_left(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "RLC ".to_string() + &data.to_string();
+
+        let byte = data.read(self).rotate_left(1);
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
+        flags.set(Flags::C, (byte & 0b0000_0001) != 0);
+        self.reg.set_flags(flags);
+    }
+
+    /// RRC
+    pub fn rotate_right(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "RRC ".to_string() + &data.to_string();
+
+        let byte = data.read(self).rotate_right(1);
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
+        flags.set(Flags::C, (byte & 0b1000_0000) != 0);
+        self.reg.set_flags(flags);
+    }
+
     /// RST
     pub fn restart(&mut self, address: u8) {
         let instr = format!("RST {:#04X}", address);

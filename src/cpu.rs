@@ -212,6 +212,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.load(B, imm);
             }
+            0x07 => self.rotate_left(A),
             0x08 => {
                 let ind = self.indirect_immediate();
                 self.load(ind, SP);
@@ -225,6 +226,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.load(C, imm);
             }
+            0x0F => self.rotate_right(A),
             0x11 => {
                 let imm = self.immediate();
                 self.load(DE, imm);
@@ -237,6 +239,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.load(D, imm);
             }
+            0x17 => self.rotate_left_through_carry(A),
             0x18 => self.jump_relative(Unconditional),
             0x19 => self.add_word(HL, DE),
             0x1A => self.load(A, Indirect::DE),
@@ -247,6 +250,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.load(E, imm);
             }
+            0x1F => self.rotate_right_through_carry(A),
             0x20 => self.jump_relative(Zero(false)),
             0x21 => {
                 let imm = self.immediate();
@@ -480,6 +484,38 @@ impl CPU {
 
         // Decode and execute. Some instructions need cycle corrections.
         match opcode {
+            0x00 => self.rotate_left(B),
+            0x01 => self.rotate_left(C),
+            0x02 => self.rotate_left(D),
+            0x03 => self.rotate_left(E),
+            0x04 => self.rotate_left(H),
+            0x05 => self.rotate_left(L),
+            0x06 => self.rotate_left(Indirect::HL),
+            0x07 => self.rotate_left(A),
+            0x08 => self.rotate_right(B),
+            0x09 => self.rotate_right(C),
+            0x0A => self.rotate_right(D),
+            0x0B => self.rotate_right(E),
+            0x0C => self.rotate_right(H),
+            0x0D => self.rotate_right(L),
+            0x0E => self.rotate_right(Indirect::HL),
+            0x0F => self.rotate_right(A),
+            0x10 => self.rotate_left_through_carry(B),
+            0x11 => self.rotate_left_through_carry(C),
+            0x12 => self.rotate_left_through_carry(D),
+            0x13 => self.rotate_left_through_carry(E),
+            0x14 => self.rotate_left_through_carry(H),
+            0x15 => self.rotate_left_through_carry(L),
+            0x16 => self.rotate_left_through_carry(Indirect::HL),
+            0x17 => self.rotate_left_through_carry(A),
+            0x18 => self.rotate_right_through_carry(B),
+            0x19 => self.rotate_right_through_carry(C),
+            0x1A => self.rotate_right_through_carry(D),
+            0x1B => self.rotate_right_through_carry(E),
+            0x1C => self.rotate_right_through_carry(H),
+            0x1D => self.rotate_right_through_carry(L),
+            0x1E => self.rotate_right_through_carry(Indirect::HL),
+            0x1F => self.rotate_right_through_carry(A),
             0x20 => self.shift_left(B),
             0x21 => self.shift_left(C),
             0x22 => self.shift_left(D),
