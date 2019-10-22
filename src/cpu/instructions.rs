@@ -452,6 +452,18 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
+    /// SRL
+    pub fn shift_right(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "SRL ".to_string() + &data.to_string();
+
+        let (byte, overflow) = data.read(self).overflowing_shr(1);
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
+        flags.set(Flags::C, overflow);
+        self.reg.set_flags(flags);
+    }
+
     /// SWAP
     pub fn swap(&mut self, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "SWAP ".to_string() + &data.to_string();
