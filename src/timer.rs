@@ -9,7 +9,7 @@ pub struct Timer {
 }
 
 impl Timer {
-    const DIV_COUNTER_MAX: u32 = 64;
+    const DIV_COUNTER_MAX: u32 = 128;
 
     pub fn new(mem: Rc<RefCell<Memory>>) -> Self {
         Self {
