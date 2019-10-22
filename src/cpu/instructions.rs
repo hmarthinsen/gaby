@@ -402,11 +402,7 @@ impl CPU {
         let (byte, overflow) = data.read(self).overflowing_shl(1);
         data.write(self, byte);
 
-        let mut flags = if byte == 0 {
-            Flags::Z
-        } else {
-            Flags::empty()
-        };
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
         flags.set(Flags::C, overflow);
         self.reg.set_flags(flags);
     }
