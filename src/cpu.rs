@@ -524,6 +524,14 @@ impl CPU {
             0x25 => self.shift_left(L),
             0x26 => self.shift_left(Indirect::HL),
             0x27 => self.shift_left(A),
+            0x28 => self.shift_right_keep_msb(B),
+            0x29 => self.shift_right_keep_msb(C),
+            0x2A => self.shift_right_keep_msb(D),
+            0x2B => self.shift_right_keep_msb(E),
+            0x2C => self.shift_right_keep_msb(H),
+            0x2D => self.shift_right_keep_msb(L),
+            0x2E => self.shift_right_keep_msb(Indirect::HL),
+            0x2F => self.shift_right_keep_msb(A),
             0x30 => self.swap(B),
             0x31 => self.swap(C),
             0x32 => self.swap(D),
@@ -543,7 +551,6 @@ impl CPU {
             0x40..=0x7F => self.select_test_bit(opcode),
             0x80..=0xBF => self.select_reset_bit(opcode),
             0xC0..=0xFF => self.select_set_bit(opcode),
-            _ => return Err(format!["Unimplemented opcode CB {:02X}", opcode]),
         }
 
         if self.print_instructions {
