@@ -10,17 +10,22 @@ use sdl2::{
     keyboard::Keycode,
     pixels::{Color, PixelFormatEnum},
 };
-use std::{cell::RefCell, error::Error, rc::Rc};
+use std::{cell::RefCell, env, error::Error, rc::Rc};
 use timer::Timer;
 use video::Video;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 2 {
+        panic!("One Game Boy ROM file path must be given as command line argument.");
+    }
+
     let rc_mem = Rc::new(RefCell::new(Memory::new()));
     let title: String;
 
     {
         let mut mem = rc_mem.borrow_mut();
-        mem.load_rom("data/tetris.gb")?;
+        mem.load_rom(&args[1])?;
         title = mem.read_game_title();
     }
     println!("Title: {}", title);
