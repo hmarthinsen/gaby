@@ -44,6 +44,31 @@ impl Display for Condition {
 }
 
 impl CPU {
+    /// ADC
+    pub fn add_with_carry(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "ADC ".to_string() + &byte.to_string();
+
+        let (mut sum, mut overflow) = self.reg.a.overflowing_add(byte.read(self));
+        if self.reg.c_flag() {
+            let (sum_2, overflow_2) = sum.overflowing_add(1);
+            sum = sum_2;
+            overflow |= overflow_2;
+        }
+        self.reg.a = sum;
+
+        let mut flags = if self.reg.a == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        // FIXME: H is wrong.
+        if overflow {
+            flags.insert(Flags::C);
+        }
+
+        self.reg.set_flags(flags);
+    }
+
     /// ADD
     pub fn add_byte(&mut self, byte: impl Source<u8>) {
         self.curr_instr = "ADD ".to_string() + &byte.to_string();

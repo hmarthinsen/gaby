@@ -275,6 +275,14 @@ impl CPU {
             0x85 => self.add_byte(L),
             0x86 => self.add_byte(Indirect::HL),
             0x87 => self.add_byte(A),
+            0x88 => self.add_with_carry(B),
+            0x89 => self.add_with_carry(C),
+            0x8A => self.add_with_carry(D),
+            0x8B => self.add_with_carry(E),
+            0x8C => self.add_with_carry(H),
+            0x8D => self.add_with_carry(L),
+            0x8E => self.add_with_carry(Indirect::HL),
+            0x8F => self.add_with_carry(A),
             0xA0 => self.and(B),
             0xA1 => self.and(C),
             0xA2 => self.and(D),
@@ -341,6 +349,10 @@ impl CPU {
             0xCD => {
                 let imm = self.immediate();
                 self.call(imm, Unconditional);
+            }
+            0xCE => {
+                let imm = self.immediate();
+                self.add_with_carry(imm);
             }
             0xCF => self.restart(0x08),
             0xD0 => self.r#return(Carry(false)),
