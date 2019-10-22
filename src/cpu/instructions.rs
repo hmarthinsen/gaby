@@ -44,37 +44,6 @@ impl Display for Condition {
 }
 
 impl CPU {
-    /// NOP
-    pub fn no_operation(&mut self) {
-        self.curr_instr = "NOP".into();
-    }
-
-    /// JP
-    pub fn jump(&mut self, word: impl Source<u16>, cond: Condition) {
-        self.curr_instr = "JP".to_string() + &cond.to_string() + " " + &word.to_string();
-
-        let address = word.read(self);
-
-        if cond.is_satisfied(self) {
-            self.cycles_until_done += 1;
-            self.reg.pc = address;
-        }
-    }
-
-    /// JR
-    pub fn jump_relative(&mut self, cond: Condition) {
-        self.curr_instr = "JR".to_string() + &cond.to_string() + " ";
-
-        let immediate: u8 = self.immediate().0;
-        let offset = immediate as i8;
-        self.curr_instr += &format!("{}", offset);
-
-        if cond.is_satisfied(self) {
-            self.cycles_until_done += 1;
-            self.reg.pc = (i32::from(self.reg.pc) + i32::from(offset)) as u16;
-        }
-    }
-
     /// ADD
     pub fn add_byte(&mut self, byte: impl Source<u8>) {
         self.curr_instr = "ADD ".to_string() + &byte.to_string();
@@ -124,32 +93,35 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
-    /// OR
-    pub fn or(&mut self, byte: impl Source<u8>) {
-        self.curr_instr = "OR ".to_string() + &byte.to_string();
+    /// BIT
+    pub fn test_bit(&mut self, target_bit: u8, data: impl Source<u8>) {
+        self.curr_instr = "BIT ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
 
-        self.reg.a |= byte.read(self);
+        let byte = data.read(self);
 
-        let flags = if self.reg.a == 0 {
-            Flags::Z
-        } else {
-            Flags::empty()
-        };
+        let mask = 1 << target_bit;
+
+        let mut flags = self.reg.flags();
+        flags.set(Flags::Z, (byte & mask) == 0);
+        flags.remove(Flags::N);
+        flags.insert(Flags::H);
         self.reg.set_flags(flags);
     }
 
-    /// XOR
-    pub fn xor(&mut self, byte: impl Source<u8>) {
-        self.curr_instr = "XOR ".to_string() + &byte.to_string();
+    /// CALL
+    pub fn call(&mut self, word: impl Source<u16>, cond: Condition) {
+        let instr = "CALL".to_string() + &cond.to_string() + " " + &word.to_string();
 
-        self.reg.a ^= byte.read(self);
+        let address = word.read(self);
 
-        let flags = if self.reg.a == 0 {
-            Flags::Z
-        } else {
-            Flags::empty()
-        };
-        self.reg.set_flags(flags);
+        if cond.is_satisfied(self) {
+            self.push(WordRegister::PC);
+
+            self.cycles_until_done += 1;
+            self.reg.pc = address;
+        }
+
+        self.curr_instr = instr;
     }
 
     /// CP
@@ -166,12 +138,16 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
-    /// LD
-    pub fn load<T, U: Target<T>, V: Source<T>>(&mut self, target: U, source: V) {
-        self.curr_instr = "LD ".to_string() + &target.to_string() + ", " + &source.to_string();
+    /// CPLA
+    pub fn complement_a(&mut self) {
+        self.curr_instr = "CPLA".to_string();
 
-        let data = source.read(self);
-        target.write(self, data);
+        self.reg.a = !self.reg.a;
+
+        let mut flags = self.reg.flags();
+        flags.insert(Flags::N);
+        flags.insert(Flags::H);
+        self.reg.set_flags(flags);
     }
 
     /// DEC
@@ -198,15 +174,22 @@ impl CPU {
         self.cycles_until_done += 1;
     }
 
-    /// LDD
-    pub fn load_and_decrement_hl<T>(&mut self, target: impl Target<T>, source: impl Source<T>) {
-        let instr = "LDD ".to_string() + &target.to_string() + ", " + &source.to_string();
+    /// DI
+    pub fn disable_interrupts(&mut self) {
+        self.curr_instr = "DI".to_string();
+        self.ime = false;
+    }
 
-        self.load(target, source);
-        self.decrement_word(WordRegister::HL);
+    /// EI
+    pub fn enable_interrupts(&mut self) {
+        self.curr_instr = "EI".to_string();
+        self.ime = true;
+    }
 
-        self.cycles_until_done -= 1;
-        self.curr_instr = instr;
+    /// HALT
+    // TODO: Finish implementation.
+    pub fn halt(&self) {
+        unimplemented!();
     }
 
     /// INC
@@ -233,6 +216,51 @@ impl CPU {
         self.cycles_until_done += 1;
     }
 
+    /// JP
+    pub fn jump(&mut self, word: impl Source<u16>, cond: Condition) {
+        self.curr_instr = "JP".to_string() + &cond.to_string() + " " + &word.to_string();
+
+        let address = word.read(self);
+
+        if cond.is_satisfied(self) {
+            self.cycles_until_done += 1;
+            self.reg.pc = address;
+        }
+    }
+
+    /// JR
+    pub fn jump_relative(&mut self, cond: Condition) {
+        self.curr_instr = "JR".to_string() + &cond.to_string() + " ";
+
+        let immediate: u8 = self.immediate().0;
+        let offset = immediate as i8;
+        self.curr_instr += &format!("{}", offset);
+
+        if cond.is_satisfied(self) {
+            self.cycles_until_done += 1;
+            self.reg.pc = (i32::from(self.reg.pc) + i32::from(offset)) as u16;
+        }
+    }
+
+    /// LD
+    pub fn load<T, U: Target<T>, V: Source<T>>(&mut self, target: U, source: V) {
+        self.curr_instr = "LD ".to_string() + &target.to_string() + ", " + &source.to_string();
+
+        let data = source.read(self);
+        target.write(self, data);
+    }
+
+    /// LDD
+    pub fn load_and_decrement_hl<T>(&mut self, target: impl Target<T>, source: impl Source<T>) {
+        let instr = "LDD ".to_string() + &target.to_string() + ", " + &source.to_string();
+
+        self.load(target, source);
+        self.decrement_word(WordRegister::HL);
+
+        self.cycles_until_done -= 1;
+        self.curr_instr = instr;
+    }
+
     /// LDI
     pub fn load_and_increment_hl<T>(&mut self, target: impl Target<T>, source: impl Source<T>) {
         let instr = "LDI ".to_string() + &target.to_string() + ", " + &source.to_string();
@@ -244,32 +272,23 @@ impl CPU {
         self.curr_instr = instr;
     }
 
-    /// HALT
-    // TODO: Finish implementation.
-    pub fn halt(&self) {
-        unimplemented!();
+    /// NOP
+    pub fn no_operation(&mut self) {
+        self.curr_instr = "NOP".into();
     }
 
-    /// DI
-    pub fn disable_interrupts(&mut self) {
-        self.curr_instr = "DI".to_string();
-        self.ime = false;
-    }
+    /// OR
+    pub fn or(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "OR ".to_string() + &byte.to_string();
 
-    /// EI
-    pub fn enable_interrupts(&mut self) {
-        self.curr_instr = "EI".to_string();
-        self.ime = true;
-    }
+        self.reg.a |= byte.read(self);
 
-    /// PUSH
-    pub fn push(&mut self, source: impl Source<u16>) {
-        let instr = "PUSH ".to_string() + &source.to_string();
-
-        self.reg.sp = self.reg.sp.wrapping_sub(2);
-        self.load(Indirect::SP, source);
-
-        self.curr_instr = instr;
+        let flags = if self.reg.a == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
+        self.reg.set_flags(flags);
     }
 
     /// POP
@@ -282,31 +301,23 @@ impl CPU {
         self.curr_instr = instr;
     }
 
-    /// CALL
-    pub fn call(&mut self, word: impl Source<u16>, cond: Condition) {
-        let instr = "CALL".to_string() + &cond.to_string() + " " + &word.to_string();
+    /// PUSH
+    pub fn push(&mut self, source: impl Source<u16>) {
+        let instr = "PUSH ".to_string() + &source.to_string();
 
-        let address = word.read(self);
-
-        if cond.is_satisfied(self) {
-            self.push(WordRegister::PC);
-
-            self.cycles_until_done += 1;
-            self.reg.pc = address;
-        }
+        self.reg.sp = self.reg.sp.wrapping_sub(2);
+        self.load(Indirect::SP, source);
 
         self.curr_instr = instr;
     }
 
-    /// RST
-    pub fn restart(&mut self, address: u8) {
-        let instr = format!("RST {:#04X}", address);
+    /// RES
+    pub fn reset_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "RES ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
 
-        self.push(WordRegister::PC);
-        self.cycles_until_done += 1;
-        self.reg.pc = u16::from(address);
-
-        self.curr_instr = instr;
+        let byte = data.read(self);
+        let mask = !(1 << target_bit);
+        data.write(self, byte & mask);
     }
 
     /// RET
@@ -331,15 +342,35 @@ impl CPU {
         self.curr_instr = instr;
     }
 
-    /// CPLA
-    pub fn complement_a(&mut self) {
-        self.curr_instr = "CPLA".to_string();
+    /// RST
+    pub fn restart(&mut self, address: u8) {
+        let instr = format!("RST {:#04X}", address);
 
-        self.reg.a = !self.reg.a;
+        self.push(WordRegister::PC);
+        self.cycles_until_done += 1;
+        self.reg.pc = u16::from(address);
 
-        let mut flags = self.reg.flags();
-        flags.insert(Flags::N);
-        flags.insert(Flags::H);
+        self.curr_instr = instr;
+    }
+
+    /// SET
+    pub fn set_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "SET ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
+
+        let byte = data.read(self);
+        let mask = 1 << target_bit;
+        data.write(self, byte | mask);
+    }
+
+    /// SLA
+    pub fn shift_left(&mut self, data: impl Source<u8> + Target<u8>) {
+        self.curr_instr = "SLA ".to_string() + &data.to_string();
+
+        let (byte, overflow) = data.read(self).overflowing_shl(1);
+        data.write(self, byte);
+
+        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
+        flags.set(Flags::C, overflow);
         self.reg.set_flags(flags);
     }
 
@@ -362,48 +393,17 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
-    /// BIT
-    pub fn test_bit(&mut self, target_bit: u8, data: impl Source<u8>) {
-        self.curr_instr = "BIT ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
+    /// XOR
+    pub fn xor(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "XOR ".to_string() + &byte.to_string();
 
-        let byte = data.read(self);
+        self.reg.a ^= byte.read(self);
 
-        let mask = 1 << target_bit;
-
-        let mut flags = self.reg.flags();
-        flags.set(Flags::Z, (byte & mask) == 0);
-        flags.remove(Flags::N);
-        flags.insert(Flags::H);
-        self.reg.set_flags(flags);
-    }
-
-    /// RES
-    pub fn reset_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
-        self.curr_instr = "RES ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
-
-        let byte = data.read(self);
-        let mask = !(1 << target_bit);
-        data.write(self, byte & mask);
-    }
-
-    /// SET
-    pub fn set_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
-        self.curr_instr = "SET ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
-
-        let byte = data.read(self);
-        let mask = 1 << target_bit;
-        data.write(self, byte | mask);
-    }
-
-    /// SLA
-    pub fn shift_left(&mut self, data: impl Source<u8> + Target<u8>) {
-        self.curr_instr = "SLA ".to_string() + &data.to_string();
-
-        let (byte, overflow) = data.read(self).overflowing_shl(1);
-        data.write(self, byte);
-
-        let mut flags = if byte == 0 { Flags::Z } else { Flags::empty() };
-        flags.set(Flags::C, overflow);
+        let flags = if self.reg.a == 0 {
+            Flags::Z
+        } else {
+            Flags::empty()
+        };
         self.reg.set_flags(flags);
     }
 }
