@@ -14,6 +14,8 @@ use std::{cell::RefCell, env, error::Error, rc::Rc};
 use timer::Timer;
 use video::Video;
 
+const PROGRAM_NAME: &str = "Gaby";
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
@@ -39,11 +41,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
 
-    let window_width = u32::from(video::SCREEN_WIDTH) * 8;
-    let window_height = u32::from(video::SCREEN_HEIGHT) * 8;
+    let window_width = u32::from(video::SCREEN_WIDTH) * 4;
+    let window_height = u32::from(video::SCREEN_HEIGHT) * 4;
+    let window_title = format!("{} - {}", PROGRAM_NAME, title);
 
     let window = video_subsystem
-        .window(&title, window_width, window_height)
+        .window(&window_title, window_width, window_height)
         .position_centered()
         .build()?;
 
