@@ -393,6 +393,7 @@ impl CPU {
                 let imm = self.immediate();
                 self.jump(imm, Carry(false));
             }
+            0xD3 => return self.invalid_opcode(opcode),
             0xD4 => {
                 let imm = self.immediate();
                 self.call(imm, Carry(false));
@@ -405,10 +406,12 @@ impl CPU {
                 let imm = self.immediate();
                 self.jump(imm, Carry(true));
             }
+            0xDB => return self.invalid_opcode(opcode),
             0xDC => {
                 let imm = self.immediate();
                 self.call(imm, Carry(true));
             }
+            0xDD => return self.invalid_opcode(opcode),
             0xDF => self.restart(0x18),
             0xE0 => {
                 let ind = self.indirect_high_immediate();
@@ -416,6 +419,8 @@ impl CPU {
             }
             0xE1 => self.pop(HL),
             0xE2 => self.load(Indirect::HighC, A),
+            0xE3 => return self.invalid_opcode(opcode),
+            0xE4 => return self.invalid_opcode(opcode),
             0xE5 => self.push(HL),
             0xE6 => {
                 let imm = self.immediate();
@@ -430,6 +435,9 @@ impl CPU {
                 let ind = self.indirect_immediate();
                 self.load(ind, A);
             }
+            0xEB => return self.invalid_opcode(opcode),
+            0xEC => return self.invalid_opcode(opcode),
+            0xED => return self.invalid_opcode(opcode),
             0xEE => {
                 let imm = self.immediate();
                 self.xor(imm);
@@ -442,6 +450,7 @@ impl CPU {
             0xF1 => self.pop(AF),
             0xF2 => self.load(A, Indirect::HighC),
             0xF3 => self.disable_interrupts(),
+            0xF4 => return self.invalid_opcode(opcode),
             0xF5 => self.push(AF),
             0xF6 => {
                 let imm = self.immediate();
@@ -457,6 +466,8 @@ impl CPU {
                 self.load(A, ind);
             }
             0xFB => self.enable_interrupts(),
+            0xFC => return self.invalid_opcode(opcode),
+            0xFD => return self.invalid_opcode(opcode),
             0xFE => {
                 let imm = self.immediate();
                 self.compare(imm);
@@ -474,6 +485,10 @@ impl CPU {
         }
 
         Ok(())
+    }
+
+    fn invalid_opcode(&self, opcode: u8) -> Result<(), String> {
+        Err(format!["Invalid opcode {:#04X}", opcode])
     }
 
     fn execute_cb(&mut self) -> Result<(), String> {
