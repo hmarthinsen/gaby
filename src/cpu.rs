@@ -22,9 +22,15 @@ pub trait WriteMem<T> {
     fn write(&mut self, address: u16, data: T);
 }
 
+enum CPUMode {
+    Halt,
+    Run,
+}
+
 pub struct CPU {
     reg: Registers,
     ime: bool, // Interrupt Master Enable flag.
+    mode: CPUMode,
     cycles_until_done: u32,
     mem: Rc<RefCell<Memory>>,
     curr_instr: String,
@@ -84,6 +90,7 @@ impl CPU {
         Self {
             reg: Registers::new(),
             ime: false,
+            mode: CPUMode::Run,
             cycles_until_done: 0,
             mem,
             curr_instr: Default::default(),
@@ -100,6 +107,11 @@ impl CPU {
     }
 
     fn dispatch_interrupts(&mut self) {
+        let cpu_is_halted = match self.mode {
+            CPUMode::Halt => true,
+            CPUMode::Run => false,
+        };
+
         if self.ime {
             let mut mem = self.mem.borrow_mut();
             let interrupt_handler = if (mem[IORegister::IF] & 0b0000_0001)
@@ -142,6 +154,17 @@ impl CPU {
                 self.reg.pc = address;
 
                 self.cycles_until_done += 5;
+
+                if cpu_is_halted {
+                    self.mode = CPUMode::Run;
+                }
+            }
+        } else if cpu_is_halted {
+            let mem = self.mem.borrow();
+            if (mem[IORegister::IF] & mem[IORegister::IE] & 0b0001_1111) != 0 {
+                // An interrupt occured in halt mode with IME = 0.
+                // FIXME: HALT bug.
+                self.mode = CPUMode::Run;
             }
         }
     }
@@ -149,11 +172,16 @@ impl CPU {
     pub fn tick(&mut self) -> Result<(), String> {
         self.dispatch_interrupts();
 
-        if self.cycles_until_done == 0 {
-            self.execute()?;
+        match self.mode {
+            CPUMode::Run => {
+                if self.cycles_until_done == 0 {
+                    self.execute()?;
+                }
+                self.cycles_until_done -= 1;
+            }
+            CPUMode::Halt => {}
         }
 
-        self.cycles_until_done -= 1;
         Ok(())
     }
 

@@ -1,6 +1,6 @@
 use crate::cpu::{
     operands::{Indirect, Source, Target, WordRegister},
-    Flags, ReadImmediate, CPU,
+    CPUMode, Flags, ReadImmediate, CPU,
 };
 use std::fmt::{Display, Formatter};
 
@@ -212,9 +212,8 @@ impl CPU {
     }
 
     /// HALT
-    // TODO: Finish implementation.
-    pub fn halt(&self) {
-        unimplemented!();
+    pub fn halt(&mut self) {
+        self.mode = CPUMode::Halt;
     }
 
     /// INC
