@@ -431,6 +431,31 @@ impl CPU {
         self.curr_instr = instr;
     }
 
+    /// SBC
+    pub fn subtract_with_carry(&mut self, byte: impl Source<u8>) {
+        self.curr_instr = "SBC ".to_string() + &byte.to_string();
+
+        let (mut difference, mut overflow) = self.reg.a.overflowing_sub(byte.read(self));
+        if self.reg.c_flag() {
+            let (difference_2, overflow_2) = difference.overflowing_sub(1);
+            difference = difference_2;
+            overflow |= overflow_2;
+        }
+        self.reg.a = difference;
+
+        let mut flags = if self.reg.a == 0 {
+            Flags::Z | Flags::N
+        } else {
+            Flags::N
+        };
+        // FIXME: H is wrong.
+        if !overflow {
+            flags.insert(Flags::C);
+        }
+
+        self.reg.set_flags(flags);
+    }
+
     /// SET
     pub fn set_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "SET ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
