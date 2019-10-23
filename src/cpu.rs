@@ -315,6 +315,14 @@ impl CPU {
             0x8D => self.add_with_carry(L),
             0x8E => self.add_with_carry(Indirect::HL),
             0x8F => self.add_with_carry(A),
+            0x90 => self.subtract(B),
+            0x91 => self.subtract(C),
+            0x92 => self.subtract(D),
+            0x93 => self.subtract(E),
+            0x94 => self.subtract(H),
+            0x95 => self.subtract(L),
+            0x96 => self.subtract(Indirect::HL),
+            0x97 => self.subtract(A),
             0xA0 => self.and(B),
             0xA1 => self.and(C),
             0xA2 => self.and(D),
@@ -399,6 +407,10 @@ impl CPU {
                 self.call(imm, Carry(false));
             }
             0xD5 => self.push(DE),
+            0xD6 => {
+                let imm = self.immediate();
+                self.subtract(imm);
+            }
             0xD7 => self.restart(0x10),
             0xD8 => self.r#return(Carry(true)),
             0xD9 => self.return_and_enable_interrupts(),
