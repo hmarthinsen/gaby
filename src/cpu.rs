@@ -288,6 +288,7 @@ impl CPU {
                 let imm: Immediate<u8> = self.immediate();
                 self.load(Indirect::HL, imm);
             }
+            0x37 => self.set_carry_flag(),
             0x38 => self.jump_relative(Carry(true)),
             0x39 => self.add_word(HL, SP),
             0x3A => self.load_and_decrement_hl(A, Indirect::HL),

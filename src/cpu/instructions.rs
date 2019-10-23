@@ -456,6 +456,17 @@ impl CPU {
         self.reg.set_flags(flags);
     }
 
+    /// SCF
+    pub fn set_carry_flag(&mut self) {
+        self.curr_instr = "SCF".to_string();
+
+        let mut flags = self.reg.flags();
+        flags.insert(Flags::C);
+        flags.remove(Flags::H);
+        flags.remove(Flags::N);
+        self.reg.set_flags(flags);
+    }
+
     /// SET
     pub fn set_bit(&mut self, target_bit: u8, data: impl Source<u8> + Target<u8>) {
         self.curr_instr = "SET ".to_string() + &target_bit.to_string() + ", " + &data.to_string();
