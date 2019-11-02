@@ -24,7 +24,7 @@ impl IORegister {
     pub const NR14: u16 = 0xFF14;
     pub const NR21: u16 = 0xFF16;
     pub const NR22: u16 = 0xFF17;
-    // pub const NR23: u16 = 0xFF18;
+    pub const NR23: u16 = 0xFF18;
     pub const NR24: u16 = 0xFF19;
     pub const NR30: u16 = 0xFF1A;
     pub const NR31: u16 = 0xFF1B;

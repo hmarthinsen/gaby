@@ -1,11 +1,14 @@
+mod audio;
 mod cpu;
 mod memory;
 mod timer;
 mod video;
 
+use audio::Audio;
 use cpu::CPU;
 use memory::Memory;
 use sdl2::{
+    audio::AudioSpecDesired,
     event::Event,
     keyboard::Keycode,
     pixels::{Color, PixelFormatEnum},
@@ -35,11 +38,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut cpu = CPU::new(rc_mem.clone());
     cpu.print_instructions = false;
 
+    let mut audio = Audio::new(rc_mem.clone());
     let mut video = Video::new(rc_mem.clone());
     let mut timer = Timer::new(rc_mem.clone());
 
     let sdl_context = sdl2::init()?;
     let video_subsystem = sdl_context.video()?;
+    let audio_subsystem = sdl_context.audio()?;
 
     let window_width = u32::from(video::SCREEN_WIDTH) * 4;
     let window_height = u32::from(video::SCREEN_HEIGHT) * 4;
@@ -62,6 +67,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         u32::from(video::SCREEN_WIDTH),
         u32::from(video::SCREEN_HEIGHT),
     )?;
+
+    // Set up audio.
+    let desired_spec = AudioSpecDesired {
+        freq: Some(65536),
+        channels: Some(1),   // mono
+        samples: Some(1024), // for less than 1 frame delay
+    };
+
+    let audio_queue = audio_subsystem.open_queue(None, &desired_spec)?;
+
+    // Start playback
+    audio_queue.resume();
 
     let mut event_pump = sdl_context.event_pump()?;
 
@@ -88,6 +105,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         for _ in 0..17556 {
             timer.tick()?;
             video.tick()?;
+            audio.tick(&audio_queue)?;
             cpu.tick()?;
         }
     }

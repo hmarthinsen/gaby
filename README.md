@@ -42,6 +42,13 @@ Each instruction takes the form of an opcode, plus up to two operands.
 
 #### Audio
 
+The audio subsystem consists of four sound generators:
+
+1. rectangle wave with sweep and envelope,
+2. rectangle wave with envelope,
+3. digital wave,
+4. white noise with envelope.
+
 #### Timer
 
 #### Interrupts
