@@ -20,7 +20,7 @@ impl IORegister {
     pub const NR10: u16 = 0xFF10;
     pub const NR11: u16 = 0xFF11;
     pub const NR12: u16 = 0xFF12;
-    // pub const NR13: u16 = 0xFF13;
+    pub const NR13: u16 = 0xFF13;
     pub const NR14: u16 = 0xFF14;
     pub const NR21: u16 = 0xFF16;
     pub const NR22: u16 = 0xFF17;
@@ -30,7 +30,7 @@ impl IORegister {
     pub const NR31: u16 = 0xFF1B;
     pub const NR32: u16 = 0xFF1C;
     pub const NR33: u16 = 0xFF1D;
-    // pub const NR34: u16 = 0xFF1E;
+    pub const NR34: u16 = 0xFF1E;
     pub const NR41: u16 = 0xFF20;
     pub const NR42: u16 = 0xFF21;
     pub const NR43: u16 = 0xFF22;
@@ -55,6 +55,7 @@ impl IORegister {
 
 pub struct Memory {
     pub data: [u8; 0x10000],
+    pub io_written_to: [bool; 0x100],
 }
 
 impl Index<u16> for Memory {
@@ -80,7 +81,10 @@ impl Memory {
         let mut data = [0u8; 0x10000];
         rand::thread_rng().fill(&mut data[..]);
 
-        let mut mem = Self { data };
+        let mut mem = Self {
+            data,
+            io_written_to: [false; 0x100],
+        };
 
         // FIXME: What about the other I/O registers?
         mem[IORegister::P1] = 0x00;
@@ -189,6 +193,9 @@ impl Memory {
     }
 
     fn write_io(&mut self, address: u16, data: u8) {
+        let io_reg = (address & 0x00FF) as usize;
+        self.io_written_to[io_reg] = true;
+
         match address {
             IORegister::DIV => self[IORegister::DIV] = 0,
             IORegister::DMA => self.dma_transfer(data),
