@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.com/hmarthinsen/gaby.svg?branch=master)](https://travis-ci.com/hmarthinsen/gaby)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby?ref=badge_shield)
 
 # Gaby
 A simple Game Boy emulator written in Rust.
@@ -65,3 +66,7 @@ Register and indirect can be used both as source and target operands, but immedi
 Instructions are implemented as functions that take operands as arguments.
 The operands implement the `Source` and/or `Target` traits.
 This way, the instructions can be written in a general way, abstracting memory access details.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby?ref=badge_large)
