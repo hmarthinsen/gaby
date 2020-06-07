@@ -1,6 +1,7 @@
+# Gaby
+
 [![Build Status](https://travis-ci.com/hmarthinsen/gaby.svg?branch=master)](https://travis-ci.com/hmarthinsen/gaby)
 
-# Gaby
 A simple Game Boy emulator written in Rust.
 NB! This is a work in progress.
 It is not possible to play games on this emulator yet.
