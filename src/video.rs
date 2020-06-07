@@ -92,7 +92,7 @@ impl Video {
             1 => VBlank,
             2 => OAM,
             3 => Transfer,
-            _ => panic!("This should never happen."),
+            _ => unreachable!(),
         }
     }
 

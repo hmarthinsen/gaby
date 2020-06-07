@@ -616,7 +616,7 @@ impl CPU {
             0x5 => Some(L),
             0x6 => None, // Signifies Indirect::HL
             0x7 => Some(A),
-            _ => panic!("This should never happen."),
+            _ => unreachable!(),
         };
 
         let target_bits = (opcode & 0b0011_1000) >> 3;
@@ -629,7 +629,7 @@ impl CPU {
             0x5 => Some(L),
             0x6 => None, // Signifies Indirect::HL
             0x7 => Some(A),
-            _ => panic!("This should never happen."),
+            _ => unreachable!(),
         };
 
         match (target, source) {
@@ -652,7 +652,7 @@ impl CPU {
             0x5 => Some(L),
             0x6 => None, // Signifies Indirect::HL
             0x7 => Some(A),
-            _ => panic!("This should never happen."),
+            _ => unreachable!(),
         };
 
         let target_bit = (opcode & 0b0011_1000) >> 3;
@@ -675,7 +675,7 @@ impl CPU {
             0x5 => Some(L),
             0x6 => None, // Signifies Indirect::HL
             0x7 => Some(A),
-            _ => panic!("This should never happen."),
+            _ => unreachable!(),
         };
 
         let target_bit = (opcode & 0b0011_1000) >> 3;
@@ -698,7 +698,7 @@ impl CPU {
             0x5 => Some(L),
             0x6 => None, // Signifies Indirect::HL
             0x7 => Some(A),
-            _ => panic!("This should never happen."),
+            _ => unreachable!(),
         };
 
         let target_bit = (opcode & 0b0011_1000) >> 3;
