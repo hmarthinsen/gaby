@@ -1,6 +1,7 @@
 # Gaby
 
 [![Rust](https://github.com/hmarthinsen/gaby/actions/workflows/rust.yml/badge.svg)](https://github.com/hmarthinsen/gaby/actions/workflows/rust.yml)
+[![rust-clippy analyze](https://github.com/hmarthinsen/gaby/actions/workflows/rust-clippy.yml/badge.svg)](https://github.com/hmarthinsen/gaby/actions/workflows/rust-clippy.yml)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby?ref=badge_shield)
 
 A simple Game Boy emulator written in Rust.
