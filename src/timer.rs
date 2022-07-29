@@ -46,7 +46,7 @@ impl Timer {
                     1 => 4,
                     2 => 16,
                     3 => 64,
-                    _ => panic!("This should never happen!"),
+                    _ => unreachable!(),
                 }
             }
             self.timer_counter -= 1;
