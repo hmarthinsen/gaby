@@ -1,6 +1,6 @@
 # Gaby
 
-[![Build Status](https://travis-ci.com/hmarthinsen/gaby.svg?branch=master)](https://travis-ci.com/hmarthinsen/gaby)
+[![Rust](https://github.com/hmarthinsen/gaby/actions/workflows/rust.yml/badge.svg)](https://github.com/hmarthinsen/gaby/actions/workflows/rust.yml)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby?ref=badge_shield)
 
 A simple Game Boy emulator written in Rust.
@@ -89,7 +89,3 @@ This way, the instructions can be written in a general way, abstracting memory a
 The instructions are member functions of the CPU object, which owns the registers, so the instructions always have access to the registers, but the other data that the instructions operate on, like memory, have to come in via the operands. This can lead to problems if e.g. the instruction is going to both read and write to memory, which would require the two operands to both borrow memory, but one of them borrowing mutably.
 
 To avoid this, the source operand always contains a copy of the data, and doesn't borrow anything.
-
-## License
-
-[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fhmarthinsen%2Fgaby?ref=badge_large)
